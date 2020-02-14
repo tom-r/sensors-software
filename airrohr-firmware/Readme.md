@@ -1,5 +1,20 @@
 # airRohr Sensor Firmware for SPS30, SDS011, DHT22, BMP180, BMP/E 280, NEO-6M and many more
 
+Adoptions in this fork :
+* this fork is based on the beta branch of the original airrohr Sensor software as of 14.02.2020
+* It implements an air pressure correction to msl (for all currentl supported sensors with air pressure)
+  based on the DWD formula as found in
+         https://de.wikipedia.org/wiki/Barometrische_H%C3%B6henformel
+  Please NOTE: this formula requires an outdoor sensor temperature (in the shade !) to work accurately.
+
+* It allows you send the corrected pressure data (instead of the original pressure value) to madavi.de, opensensemap.org and the feinstaub-app. The luftdaten.info page (maps.sensor.community) has its own pressure correction and does not need it.
+* Furthermore you can correct the basic pressure and humidity value in case they have an offset.
+* There is an optimization implemented for the SPS30 particle sensor, using exponential smoothing for (the constantly incoming) pressure values instead of using the arithmetic mean
+* input field for sensor altitude over mean sea level
+* corrected pressure data is shown in the local sensor values as well as on a local display.
+* addtional options (sensor altitude over msl) are only visible if you have a pressure sensor attached
+
+
 ## Features:
 * many environmental and air quality sensors can be used concurrently
 * Integration in Sensor.Community (formerly Luftdaten.Info)
@@ -76,7 +91,7 @@ Please refer to the [Pinout of NodeMCU v2 and v3](https://github.com/opendata-st
 
 ### DS18B20 (OneWire interface)
 Please check your version (pinout) at [https://datasheets.maximintegrated.com/en/ds/DS18B20.pdf]
-Uses the same PIN D7 as DHT22, so DHT22 OR DS18B20 can be used. 
+Uses the same PIN D7 as DHT22, so DHT22 OR DS18B20 can be used.
 * GND  -> Pin GND
 * DQ   -> Pin D7 (GPIO 13)
 * VCC  -> Pin 3V3 or Pin VU
@@ -152,8 +167,8 @@ VCC and GND can be provided by board board (use 3.3v!)
 
 **Note**: Serial connections are always crossed (RX on one side is connected with TX on other side)
 
-* TX von Neo -> Pin D5 (RX) 
-* RX von Neo -> Pin D6 (TX) 
+* TX von Neo -> Pin D5 (RX)
+* RX von Neo -> Pin D6 (TX)
 
 ## Luftdaten.info API "Pins"
 

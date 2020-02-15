@@ -419,7 +419,7 @@ float value_SPS30_N4 = 0.0;
 float value_SPS30_N10 = 0.0;
 float value_SPS30_TS = 0.0;
 //TR:Test ExpSmoothing
-float alpha = 0.5;
+float alpha = 0.3;
 /*float Smvalue_SPS30_P0=-100.0;
 float oldSmvalue_SPS30_P0=-1.0;
 float Smvalue_SPS30_P1=-100.0;
@@ -434,6 +434,7 @@ uint16_t SPS30_measurement_count = 0;
 unsigned long SPS30_read_counter = 0;
 unsigned long SPS30_read_error_counter = 0;
 unsigned long SPS30_read_timer = 0;
+unsigned long BMX280_read_timer= 0;
 bool sps30_init_failed = false;
 
 float last_value_PPD_P1 = -1.0;
@@ -2356,7 +2357,7 @@ static void fetchSensorBMP(String& s) {
 		else{
 		  last_value_BMP_P_NN=last_value_BMP_P;
 		}
-//		add_Value2Json(s, F("BMP_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMP_P);
+		add_Value2Json(s, F("BMP_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMP_P);
 		add_Value2Json(s, F("BMP_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMP_T);
 	}
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
@@ -2389,11 +2390,10 @@ static void fetchSensorSHT3x(String& s) {
 /*****************************************************************
  * read BMP280/BME280 sensor values                              *
  *****************************************************************/
-//static void fetchSensorBMX280(String& s,String& sNN) {
 static void fetchSensorBMX280(String& s) {
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_BMX280));
 
-	bmx280.takeForcedMeasurement();
+/*	bmx280.takeForcedMeasurement();
 	const auto t = bmx280.readTemperature();
 	const auto p = bmx280.readPressure();
 	const auto h = bmx280.readHumidity();
@@ -2414,17 +2414,18 @@ static void fetchSensorBMX280(String& s) {
 		}
 		else{
 		  last_value_BMX280_P_NN=last_value_BMX280_P;
-		}
+		}*/
 		if (bmx280.sensorID() == BME280_SENSOR_ID) {
 			add_Value2Json(s, F("BME280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
-			add_Value2Json(s, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
-			last_value_BME280_H = h + readCorrectionOffset(cfg::humidity_correction);
+			//add_Value2Json(s, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
+			//last_value_BME280_H = h + readCorrectionOffset(cfg::humidity_correction);
 			add_Value2Json(s, F("BME280_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_BME280_H);
-		} else {
-			add_Value2Json(s, F("BMP280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
-			add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
 		}
-	}
+		else {
+			add_Value2Json(s, F("BMP280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
+			//add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
+		}
+	//}
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	//debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_BMX280));
 }
@@ -2921,25 +2922,6 @@ static void fetchSensorSPS30(String& s) {
 */
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_SPS30));
-				sps30_stop_measurement();
-				delay(10);
-				sps30_start_measurement();
-				delay(10);
-				uint16_t data_ready = 0;
-				int16_t ret_SPS30;
-				do {
-        			ret_SPS30 = sps30_read_data_ready(&data_ready); //warten bis Messwerte da sind ...
-        		//if (ret_SPS30 < 0)
-				//	debug_outln_info(F("SDS30: Error reading data-ready flag"));
-        		//else if (!data_ready)
-				//	debug_outln_info(F("SDS30: Data not ready, no new measurement available"));
-        		if (ret_SPS30 >= 0){
-					debug_outln_info(F("SPS30: Data is ready"));
-            		break;
-				}
-        			delay(200); // retry in 200ms
-    			} while (1);
-
 
 }
 
@@ -3798,7 +3780,7 @@ static void setupNetworkTime() {
 	configTime(0, 0, ntpServer1, ntpServer2);
 }
 
-static unsigned long sendDataToOptionalApis(const String &data) {
+static unsigned long sendDataToOptionalApis( String &data) {
 	unsigned long sum_send_time = 0;
 // hier jetzt den auf msl korrigierten Luftdruck als JSON String an data2 anhängen, String abschließen und senden
 // der letzte Wert steht in  float last_value_BMX280_P_NN, bzw. last_value_BMX280_P
@@ -3820,7 +3802,6 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		RESERVE_STRING(data2, LARGE_STR);
 		data2=data;
 
-      //TR adopt pressure data here for bmx280
   		if(cfg::bmx280_read && (! bmx280_init_failed)){
  			if (bmx280.sensorID() == BME280_SENSOR_ID) {
         		if(cfg::sensemap_p_nn && cfg::local_altitude>0)
@@ -3852,7 +3833,6 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		RESERVE_STRING(data2, LARGE_STR);
 
 		data2=data;
-   //TR adopt pressure data here for bmx280
    		if(cfg::bmx280_read && (! bmx280_init_failed)){
  			if (bmx280.sensorID() == BME280_SENSOR_ID) {
         		if(cfg::sensemap_p_nn && cfg::local_altitude>0)
@@ -3908,7 +3888,14 @@ static unsigned long sendDataToOptionalApis(const String &data) {
 		//debug_outln_info(F("FeinstaubApp:"),data2);
 		sum_send_time += sendData(LoggerFSapp, data2, 0, HOST_FSAPP, URL_FSAPP);
 	}
-
+//standard pressure from here on; finalize original data string ...
+	if (cfg::bmp_read && (! bmp_init_failed) ){
+		add_Value2Json(data, F("BMP_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMP_P);
+	}
+	if (cfg::bmx280_read && (! bmx280_init_failed)){
+		add_Value2Json(data, F("BMP280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
+	}
+	data+=data_end;
 	if (cfg::send2aircms) {
 		debug_outln_info(FPSTR(DBG_TXT_SENDING_TO), F("aircms.online: "));
 		unsigned long ts = millis() / 1000;
@@ -4067,38 +4054,19 @@ void loop(void) {
 		UPDATE_MIN_MAX(min_micro, max_micro, diff_micro);
 	}
 	last_micro = act_micro;
-
+//goal is to measure every 10s(SPS30_WAITING_AFTER_LAST_READ=15000)
 	if (cfg::sps30_read && ( !sps30_init_failed)) {
 		if ((msSince(starttime) - SPS30_read_timer) > SPS30_WAITING_AFTER_LAST_READ) {
-			struct sps30_measurement sps30_values;
 			int16_t ret_SPS30;
-			//uint16_t data_ready = 0;
+			struct sps30_measurement sps30_values;
 			SPS30_read_timer = msSince(starttime);
-			/*ret_SPS30 = sps30_start_measurement();//Messung starten, Lüfter an ...
-			delay(2000);
-    		do {
-        		ret_SPS30 = sps30_read_data_ready(&data_ready); //warten bis Messwerte da sind ...
-        		if (ret_SPS30 < 0)
-					debug_outln_info(F("SDS30: Error reading data-ready flag"));
-        		else if (!data_ready)
-					debug_outln_info(F("SDS30: Data not ready, no new measurement available"));
-        		else{
-					debug_outln_info(F("SPS30: Data is ready"));
-            		break;
-				}
-        		delay(100); /* retry in 200ms
-    		} while (1);
-*/
+		    //debug_outln_info(F("SDS30: reading measurement ..."));
 			ret_SPS30 = sps30_read_measurement(&sps30_values);//Messwerte holen
-			++SPS30_read_counter;
+			//++SPS30_read_counter;
 			if (ret_SPS30 < 0) {
 				debug_outln_info(F("SPS30 error reading measurement"));
 				SPS30_read_error_counter++;
 			} else {
-				/*ret_SPS30 = sps30_stop_measurement();//Lüfter aus ...
- 				if (ret_SPS30 < 0) {
-					debug_outln_info(F("SPS30 Error stopping measurement"));
-			    }*/
 				if (SPS_IS_ERR_STATE(ret_SPS30)) {
 					debug_outln_info(F("SPS30 measurements may not be accurate"));
 					SPS30_read_error_counter++;
@@ -4168,6 +4136,7 @@ void loop(void) {
 				value_SPS30_TS += sps30_values.tps;
 				++SPS30_measurement_count;*/
 			}
+		//debug_outln_info(F("SDS30: measurement done"));
 		}
 	}
 
@@ -4202,7 +4171,37 @@ void loop(void) {
 			starttime_GPS = act_milli;
 		}
 	}
-
+    if (cfg::bmx280_read && (! bmx280_init_failed) && (msSince(starttime) - BMX280_read_timer) > SPS30_WAITING_AFTER_LAST_READ) {
+		BMX280_read_timer = msSince(starttime);
+		bmx280.takeForcedMeasurement();
+		const auto t = bmx280.readTemperature();
+		const auto p = bmx280.readPressure();
+		const auto h = bmx280.readHumidity();
+		if (isnan(t) || isnan(p)) {
+			//last_value_BMX280_T = -128.0;
+			//last_value_BMX280_P = -1.0;
+			//last_value_BME280_H = -1.0;
+			//last_value_BMX280_P_NN = -1.0;
+			debug_outln_error(F("BMP/BME280 read failed"));
+		}
+		else {
+			float pakt=p + readCorrectionOffset(cfg::press_correction);
+			float takt=t + readCorrectionOffset(cfg::temp_correction);
+			last_value_BMX280_T = ExpSmoothVal(takt,last_value_BMX280_T);
+			last_value_BMX280_P = ExpSmoothVal(pakt,last_value_BMX280_P);
+			debug_outln_info(F("BME280 Höhe msl:"),readCorrectionOffset(cfg::local_altitude));
+			if( readCorrectionOffset(cfg::local_altitude) >0.0 ){
+				float pkorr=convert_pressure2msl(pakt,takt,readCorrectionOffset(cfg::local_altitude));
+				last_value_BMX280_P_NN=ExpSmoothVal(pkorr,last_value_BMX280_P_NN);
+				debug_outln_info(F("BME280 Druck msl:"),pkorr);
+			}
+			else{
+		 		last_value_BMX280_P_NN=last_value_BMX280_P;
+			}
+			if (bmx280.sensorID() == BME280_SENSOR_ID)
+				last_value_BME280_H = ExpSmoothVal(h + readCorrectionOffset(cfg::humidity_correction),last_value_BME280_H);
+		}
+	}
 	if ((msSince(last_display_millis) > DISPLAY_UPDATE_INTERVAL_MS) &&
 			(cfg::has_display || cfg::has_sh1106 || lcd_1602 || lcd_2004)) {
 		display_values();

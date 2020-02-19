@@ -90,7 +90,7 @@ enum ConfigShapeId {
 	Config_pwd_influx,
 	Config_measurement_name_influx,
 	Config_ssl_influx,
-	Config_local_altitude,
+	Config_local_altitude
 };
 const char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 const char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -226,5 +226,5 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Password, sizeof(cfg::pwd_influx)-1, FPSTR(CFG_KEY_PWD_INFLUX), cfg::pwd_influx },
 	{ Config_Type_String, sizeof(cfg::measurement_name_influx)-1, FPSTR(CFG_KEY_MEASUREMENT_NAME_INFLUX), cfg::measurement_name_influx },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_SSL_INFLUX), &cfg::ssl_influx },
-	{ Config_Type_String, sizeof(cfg::local_altitude)-1, FPSTR(CFG_KEY_LOCAL_ALTITUDE), cfg::local_altitude },
+	{ Config_Type_String, sizeof(cfg::local_altitude)-1, FPSTR(CFG_KEY_LOCAL_ALTITUDE), cfg::local_altitude }
 };

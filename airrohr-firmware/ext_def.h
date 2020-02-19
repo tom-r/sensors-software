@@ -174,7 +174,17 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define PPD_PIN_PM1 GPS_SERIAL_TX
 #define PPD_PIN_PM2 GPS_SERIAL_RX
 #endif
-
+#if defined(devkit_v4) //TR
+#define ONEWIRE_PIN D32
+#define I2C_PIN_SCL D22
+#define I2C_PIN_SDA D17_WROOM_ONLY
+#define PM_SERIAL_RX D23
+#define PM_SERIAL_TX D2_STRAPPING
+#define GPS_SERIAL_RX D13_JTAG_TCK
+#define GPS_SERIAL_TX D0_STRAPPING
+#define PPD_PIN_PM1 GPS_SERIAL_TX
+#define PPD_PIN_PM2 GPS_SERIAL_RX
+#endif
 //  === pin assignments for heltec_wifi_lora_32 board ===================================
 #if defined(WIFI_LoRa_32)
 #define ONEWIRE_PIN D25 // TODO: this overlaps with LED, so it might not work

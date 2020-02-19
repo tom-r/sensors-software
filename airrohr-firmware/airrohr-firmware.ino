@@ -94,7 +94,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include <ESPmDNS.h>
 #endif
 
-// includes common to ESP8266 and ESP32 (especially external libraries)
+//includes common to ESP8266 and ESP32 (especially external libraries)
 #include "./oledfont.h"				// avoids including the default Arial font, needs to be included before SSD1306.h
 #include <SSD1306.h>
 #include <SH1106.h>
@@ -3960,6 +3960,14 @@ void setup(void) {
 	delay(50);
 	digitalWrite(RST_OLED, HIGH);
 #endif
+#if defined(devkit_v4)
+	// reset the OLED display, e.g. of the heltec_wifi_lora_32 board
+	pinMode(RST_OLED, OUTPUT);
+	digitalWrite(RST_OLED, LOW);
+	delay(50);
+	digitalWrite(RST_OLED, HIGH);
+#endif
+
 	Wire.begin(I2C_PIN_SDA, I2C_PIN_SCL);
 
 #if defined(ESP8266)

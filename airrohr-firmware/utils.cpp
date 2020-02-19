@@ -21,10 +21,11 @@
  */
 
 #include <WString.h>
+#if defined(ESP8266)
 #include <Hash.h>
 #include <coredecls.h>
 #include <ESP8266WiFi.h>
-
+#endif
 #include "./intl.h"
 #include "./utils.h"
 #include "./defines.h"

@@ -25,20 +25,21 @@
 #define utils_h
 
 #include <WString.h>
-#if defined(ESP8266)
 #include <Hash.h>
 #include <coredecls.h>
+#if defined(ESP8266)
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>
 #endif
 
 #if defined(ESP32)
 //#include <Hash.h>
-#include <coredecls.h>
+//#include <coredecls.h>
+#include <WiFi.h>
 #include <WiFiServer.h>
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
-//#include <SoftwareSerial.h>
+#include <SoftwareSerial.h>
 #endif
 
 constexpr unsigned SMALL_STR = 64-1;

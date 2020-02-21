@@ -2422,8 +2422,8 @@ static void fetchSensorBMX280(String& s) {
 			add_Value2Json(s, F("BME280_humidity"), FPSTR(DBG_TXT_HUMIDITY), last_value_BME280_H);
 		}
 		else {
-			add_Value2Json(s, F("BMP280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
-			//add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
+			//add_Value2Json(s, F("BMP280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
+			add_Value2Json(s, F("BMP280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
 		}
 	//}
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
@@ -4271,8 +4271,10 @@ void loop(void) {
 			fetchSensorBMX280(result);
 			data += result;
 			if (bmx280.sensorID() == BME280_SENSOR_ID) {
+				add_Value2Json(result, F("BME280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
 				sum_send_time += sendSensorCommunity(result, BME280_API_PIN, FPSTR(SENSORS_BMX280), "BME280_");
 			} else {
+				add_Value2Json(result, F("BMP280_pressure"), FPSTR(DBG_TXT_PRESSURE), last_value_BMX280_P);
 				sum_send_time += sendSensorCommunity(result, BMP280_API_PIN, FPSTR(SENSORS_BMX280), "BMP280_");
 			}
 			result = emptyString;

@@ -4022,9 +4022,9 @@ void setup(void) {
 	last_update_attempt = time_point_device_start_ms = starttime;
 	last_display_millis = starttime_SDS = starttime;
 }
-static float ExpSmoothVal(float newval,float oldSmoothedValue)
+static float ExpSmoothVal(float newval,float oldSmoothedValue,float nanval)
 {
-    if (oldSmoothedValue==-1.0){ //Startwert setzen
+    if (oldSmoothedValue==nanval){ //Startwert setzen
 	  oldSmoothedValue = newval;
 	}
 
@@ -4079,16 +4079,38 @@ void loop(void) {
 					debug_outln_info(F("SPS30 measurements may not be accurate"));
 					SPS30_read_error_counter++;
 				}
-				last_value_SPS30_P0 = ExpSmoothVal(sps30_values.mc_1p0,last_value_SPS30_P0);
-				last_value_SPS30_P1 = ExpSmoothVal(sps30_values.mc_10p0,last_value_SPS30_P1);
-				last_value_SPS30_P2 = ExpSmoothVal(sps30_values.mc_2p5,last_value_SPS30_P2);
-				last_value_SPS30_P4 = ExpSmoothVal(sps30_values.mc_4p0,last_value_SPS30_P4);
-				last_value_SPS30_N05 = ExpSmoothVal(sps30_values.nc_0p5,last_value_SPS30_N05);
-				last_value_SPS30_N1 = ExpSmoothVal(sps30_values.nc_1p0,last_value_SPS30_N1);
-				last_value_SPS30_N25 = ExpSmoothVal(sps30_values.nc_2p5,last_value_SPS30_N25);
-				last_value_SPS30_N4 = ExpSmoothVal(sps30_values.nc_4p0,last_value_SPS30_N4);
-				last_value_SPS30_N10 = ExpSmoothVal(sps30_values.nc_10p0,last_value_SPS30_N10);
-				last_value_SPS30_TS = ExpSmoothVal(sps30_values.tps,last_value_SPS30_TS);
+				last_value_SPS30_P0 = ExpSmoothVal(sps30_values.mc_1p0,last_value_SPS30_P0,-1.0);
+				last_value_SPS30_P1 = ExpSmoothVal(sps30_values.mc_10p0,last_value_SPS30_P1,-1.0);
+				last_value_SPS30_P2 = ExpSmoothVal(sps30_values.mc_2p5,last_value_SPS30_P2,-1.0);
+				last_value_SPS30_P4 = ExpSmoothVal(sps30_values.mc_4p0,last_value_SPS30_P4,-1.0);
+				last_value_SPS30_N05 = ExpSmoothVal(sps30_values.nc_0p5,last_value_SPS30_N05,-1.0);
+				last_value_SPS30_N1 = ExpSmoothVal(sps30_values.nc_1p0-sps30_values.nc_0p5,last_value_SPS30_N1,-1.0);
+				last_value_SPS30_N25 = ExpSmoothVal(sps30_values.nc_2p5-sps30_values.nc_1p0,last_value_SPS30_N25,-1.0);
+				last_value_SPS30_N4 = ExpSmoothVal(sps30_values.nc_4p0-sps30_values.nc_2p5,last_value_SPS30_N4,-1.0);
+				last_value_SPS30_N10 = ExpSmoothVal(sps30_values.nc_10p0-sps30_values.nc_4p0,last_value_SPS30_N10,-1.0);
+				last_value_SPS30_TS = ExpSmoothVal(sps30_values.tps,last_value_SPS30_TS,-1.0);
+	/* https://github.com/Sensirion/arduino-sps/blob/master/examples/sps30/sps30.ino
+	// since all values include particles smaller than X, if we want to create buckets we
+    // need to subtract the smaller particle count.
+    // This will create buckets (all values in micro meters):
+    // - particles        <= 0,5
+    // - particles > 0.5, <= 1
+    // - particles > 1,   <= 2.5
+    // - particles > 2.5, <= 4
+    // - particles > 4,   <= 10
+
+    Serial.print(m.nc_0p5);
+    Serial.print(" ");
+    Serial.print(m.nc_1p0  - m.nc_0p5);
+    Serial.print(" ");
+    Serial.print(m.nc_2p5  - m.nc_1p0);
+    Serial.print(" ");
+    Serial.print(m.nc_4p0  - m.nc_2p5);
+    Serial.print(" ");
+    Serial.print(m.nc_10p0 - m.nc_4p0);
+    Serial.println();
+
+				*/
 				/*RESERVE_STRING(SMdata, LARGE_STR);
 				SMdata=String(sps30_values.mc_1p0);
 				SMdata+= ";";
@@ -4195,19 +4217,19 @@ void loop(void) {
 		else {
 			float pakt=p + readCorrectionOffset(cfg::press_correction);
 			float takt=t + readCorrectionOffset(cfg::temp_correction);
-			last_value_BMX280_T = ExpSmoothVal(takt,last_value_BMX280_T);
-			last_value_BMX280_P = ExpSmoothVal(pakt,last_value_BMX280_P);
+			last_value_BMX280_T = ExpSmoothVal(takt,last_value_BMX280_T,-128.0);
+			last_value_BMX280_P = ExpSmoothVal(pakt,last_value_BMX280_P,-1.0);
 			debug_outln_info(F("BME280 Höhe msl:"),readCorrectionOffset(cfg::local_altitude));
 			if( readCorrectionOffset(cfg::local_altitude) >0.0 ){
 				float pkorr=convert_pressure2msl(pakt,takt,readCorrectionOffset(cfg::local_altitude));
-				last_value_BMX280_P_NN=ExpSmoothVal(pkorr,last_value_BMX280_P_NN);
+				last_value_BMX280_P_NN=ExpSmoothVal(pkorr,last_value_BMX280_P_NN,-1.0);
 				debug_outln_info(F("BME280 Druck msl:"),pkorr);
 			}
 			else{
 		 		last_value_BMX280_P_NN=last_value_BMX280_P;
 			}
 			if (bmx280.sensorID() == BME280_SENSOR_ID)
-				last_value_BME280_H = ExpSmoothVal(h + readCorrectionOffset(cfg::humidity_correction),last_value_BME280_H);
+				last_value_BME280_H = ExpSmoothVal(h + readCorrectionOffset(cfg::humidity_correction),last_value_BME280_H,-1.0);
 		}
 	}
 	if ((msSince(last_display_millis) > DISPLAY_UPDATE_INTERVAL_MS) &&

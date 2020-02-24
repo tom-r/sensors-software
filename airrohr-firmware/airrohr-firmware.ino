@@ -118,7 +118,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "defines.h"
 #include "ext_def.h"
 #include "html-content.h"
-#include <math.h>
+//#include <math.h>
 
 /******************************************************************
  * The variables inside the cfg namespace are persistent          *
@@ -419,16 +419,7 @@ float value_SPS30_N4 = 0.0;
 float value_SPS30_N10 = 0.0;
 float value_SPS30_TS = 0.0;
 //TR:Test ExpSmoothing
-float alpha = 0.3;
-/*float Smvalue_SPS30_P0=-100.0;
-float oldSmvalue_SPS30_P0=-1.0;
-float Smvalue_SPS30_P1=-100.0;
-float oldSmvalue_SPS30_P1=-1.0;
-float Smvalue_SPS30_P2=-100.0;
-float oldSmvalue_SPS30_P2=-1.0;
-float Smvalue_SPS30_P4=-100.0;
-float oldSmvalue_SPS30_P4=-1.0;
-*/
+float alpha = 0.2;
 
 uint16_t SPS30_measurement_count = 0;
 unsigned long SPS30_read_counter = 0;
@@ -1280,9 +1271,9 @@ static void webserver_config() {
 	end_html_page(page_content);
 
 	if (server.method() == HTTP_POST) {
-		display_debug(F("Writing config"), emptyString);
+		//display_debug(F("Writing config"), emptyString);
 		if (writeConfig()) {
-			display_debug(F("Writing config"), F("and restarting"));
+			//display_debug(F("Writing config"), F("and restarting"));
 			sensor_restart();
 		}
 	}
@@ -2010,7 +2001,7 @@ static void waitForWifiToConnect(int maxRetries) {
  * WiFi auto connecting script                                   *
  *****************************************************************/
 static void connectWifi() {
-	display_debug(F("Connecting to"), String(cfg::wlanssid));
+	//display_debug(F("Connecting to"), String(cfg::wlanssid));
 #if defined(ESP8266)
 	// Enforce Rx/Tx calibration
 	system_phy_set_powerup_option(1);
@@ -2045,7 +2036,7 @@ static void connectWifi() {
 	debug_outln_info(emptyString);
 	if (WiFi.status() != WL_CONNECTED) {
 		String fss(cfg::fs_ssid);
-		display_debug(fss.substring(0, 16), fss.substring(16));
+		//display_debug(fss.substring(0, 16), fss.substring(16));
 
 		wifi.policy = WIFI_COUNTRY_POLICY_AUTO;
 		wifi_set_country(&wifi);
@@ -3144,7 +3135,7 @@ static void twoStageOTAUpdate() {
 
 	newFwmd5.trim();
 	if (newFwmd5 == ESP.getSketchMD5()) {
-		display_debug(FPSTR(DBG_TXT_UPDATE), FPSTR(DBG_TXT_UPDATE_NO_UPDATE));
+		//display_debug(FPSTR(DBG_TXT_UPDATE), FPSTR(DBG_TXT_UPDATE_NO_UPDATE));
 		debug_outln_verbose(F("No newer version available."));
 		return;
 	}
@@ -3199,7 +3190,7 @@ static void twoStageOTAUpdate() {
 	debug_outln_info(F("launching 2nd stage"));
 	if (!launchUpdateLoader(loaderMD5)) {
 		debug_outln_error(FPSTR(DBG_TXT_UPDATE_FAILED));
-		display_debug(FPSTR(DBG_TXT_UPDATE), FPSTR(DBG_TXT_UPDATE_FAILED));
+		//display_debug(FPSTR(DBG_TXT_UPDATE), FPSTR(DBG_TXT_UPDATE_FAILED));
 		SPIFFS.remove(firmware_name);
 		SPIFFS.remove(firmware_md5);
 		return;

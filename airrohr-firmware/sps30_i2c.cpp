@@ -178,7 +178,7 @@ int16_t sps30_set_fan_auto_cleaning_interval(uint32_t interval_seconds) {
 
   ret = sensirion_i2c_write_cmd_with_args(SPS_I2C_ADDRESS,  SPS_CMD_AUTOCLEAN_INTERVAL, data, SENSIRION_NUM_WORDS(data));
 //  sensirion_sleep_usec(SPS_WRITE_DELAY_US);
-  delay(SPS_WRITE_DELAY_US / 1000);
+  delay((SPS_WRITE_DELAY_US / 1000)+1); //TR
   return ret;
 }
 
@@ -233,22 +233,27 @@ int16_t sensirion_i2c_read_cmd(uint8_t address, uint16_t cmd, uint16_t *data_wor
   if (ret != STATUS_OK) {
     return ret;
   }
+  delay((SPS_WRITE_DELAY_US / 1000)+1); //TR
+
   return sensirion_i2c_read_words(address, data_words, num_words);
 }
 
 
 int8_t sensirion_i2c_read(uint8_t address, uint8_t* data, uint16_t count) {
   uint8_t rxByteCount = 0;
+    uint8_t readData[count]; //TR
 
   // 2 bytes RH, 1 CRC, 2 bytes T, 1 CRC
   Wire.requestFrom(address, (uint8_t)count);
 
   while (Wire.available()) { // wait till all arrive
-    data[rxByteCount++] = Wire.read();
+    //TRdata[rxByteCount++] = Wire.read();
+    readData[rxByteCount++] = Wire.read();//TR
     if (rxByteCount >= count) {
       break;
     }
   }
+  memcpy(data, readData, count);//TR
   return STATUS_OK;
 }
 

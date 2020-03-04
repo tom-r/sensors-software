@@ -118,7 +118,6 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "defines.h"
 #include "ext_def.h"
 #include "html-content.h"
-//#include <math.h>
 
 /******************************************************************
  * The variables inside the cfg namespace are persistent          *
@@ -250,6 +249,13 @@ bool sht3x_init_failed = false;
 bool dnms_init_failed = false;
 bool gps_init_failed = false;
 bool airrohr_selftest_failed = false;
+//TR grafik arrays für SH1106
+#define ARRSIZE_X 120
+#define ARRSIZE_Y 56
+
+uint8_t pm25_arr[ARRSIZE_X];
+uint8_t pm10_arr[ARRSIZE_X];
+uint8_t max_pm=0;
 
 #if defined(ESP8266)
 ESP8266WebServer server(80);
@@ -419,7 +425,7 @@ float value_SPS30_N4 = 0.0;
 float value_SPS30_N10 = 0.0;
 float value_SPS30_TS = 0.0;
 //TR:Test ExpSmoothing
-float alpha = 0.2;
+float alpha = 1.0;
 
 uint16_t SPS30_measurement_count = 0;
 unsigned long SPS30_read_counter = 0;
@@ -1387,11 +1393,11 @@ static void webserver_values() {
 
 
 	auto add_table_pm_value = [&page_content](const __FlashStringHelper* sensor, const __FlashStringHelper* param, const float& value) {
-		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 1, 0), F("µg/m³"));
+		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 2, 0), F("µg/m³"));
 	};
 
 	auto add_table_nc_value = [&page_content](const __FlashStringHelper* sensor, const __FlashStringHelper* param, const float value) {
-		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 1, 0), F("#/cm³"));
+		add_table_row_from_value(page_content, sensor, param, check_display_value(value, -1, 2, 0), F("#/cm³"));
 	};
 
 	auto add_table_t_value = [&page_content](const __FlashStringHelper* sensor, const __FlashStringHelper* param, const float value) {
@@ -3207,7 +3213,21 @@ static String displayGenerateFooter(unsigned int screen_count) {
 	}
 	return display_footer;
 }
-
+static void add_PM_to_graphics_array(float pm25,float pm10){
+	uint8_t ipm25=(uint8_t)(pm25*10.0);
+	uint8_t ipm10=(uint8_t)(pm10*10.0);
+	max_pm=0;
+    for(int i=1;i<ARRSIZE_X;i++){ //shift
+		pm25_arr[i-1]=pm25_arr[i];
+		pm10_arr[i-1]=pm10_arr[i];
+		max_pm=max(max_pm,pm25_arr[i-1]);//max Wert aller 4 Kurven merken für skalierung
+		max_pm=max(max_pm,pm10_arr[i-1]);
+	}
+	pm25_arr[ARRSIZE_X-1]=ipm25;
+	pm10_arr[ARRSIZE_X-1]=ipm10;
+	max_pm=max(max_pm,ipm25);
+	max_pm=max(max_pm,ipm10);
+}
 /*****************************************************************
  * display values                                                *
  *****************************************************************/
@@ -3240,7 +3260,7 @@ static void display_values() {
 	uint8_t screen_count = 0;
 	uint8_t screens[8];
 	int line_count = 0;
-	debug_outln_info(F("output values to display..."));
+	//debug_outln_info(F("output values to display..."));
 	if (cfg::ppd_read) {
 		pm10_value = last_value_PPD_P1;
 		pm10_sensor = FPSTR(SENSORS_PPD42NS);
@@ -3324,7 +3344,7 @@ static void display_values() {
 		lon_value = last_value_GPS_lon;
 		alt_value = last_value_GPS_alt;
 	}
-	if (cfg::ppd_read || cfg::pms_read || cfg::hpm_read || cfg::sds_read) {
+	if (cfg::ppd_read || cfg::pms_read || cfg::hpm_read || cfg::sds_read || (cfg::sps30_read && lcd_2004)) {
 		screens[screen_count++] = 1;
 	}
 	if (cfg::sps30_read) {
@@ -3349,19 +3369,35 @@ static void display_values() {
 	if (cfg::has_display || cfg::has_sh1106 || lcd_2004) {
 		switch (screens[next_display_count % screen_count]) {
 		case 1:
-			display_header = pm25_sensor;
-			if (pm25_sensor != pm10_sensor) {
-				display_header += " / " + pm10_sensor;
+			if(lcd_2004 && cfg::sps30_read){
+				display_header   = "PM1 :"+ check_display_value(pm01_value, -1, 2, 6) + "  SPS30/1";
+				display_lines[0] = "PM25:"+ check_display_value(pm25_value, -1, 2, 6);
+				display_lines[1] = "PM4 :"+ check_display_value(pm04_value, -1, 2, 6);
+				display_lines[2] = "PM10:"+ check_display_value(pm10_value, -1, 2, 6)+ " TPS:" + check_display_value(tps_value, -1, 2, 4);
 			}
-			display_lines[0] = std::move(tmpl(F("PM2.5: {v} µg/m³"), check_display_value(pm25_value, -1, 1, 6)));
-			display_lines[1] = std::move(tmpl(F("PM10: {v} µg/m³"), check_display_value(pm10_value, -1, 1, 6)));
-			display_lines[2] = emptyString;
+			else{
+				display_header = pm25_sensor;
+				if (pm25_sensor != pm10_sensor) {
+					display_header += " / " + pm10_sensor;
+				}
+				display_lines[0] = std::move(tmpl(F("PM2.5: {v} µg/m³"), check_display_value(pm25_value, -1, 1, 6)));
+				display_lines[1] = std::move(tmpl(F("PM10: {v} µg/m³"), check_display_value(pm10_value, -1, 1, 6)));
+				display_lines[2] = emptyString;
+			}
 			break;
 		case 2:
-			display_header = FPSTR(SENSORS_SPS30);
-			display_lines[0] = "PM: " + check_display_value(pm01_value, -1, 1, 4) + " " + check_display_value(pm25_value, -1, 1, 4) + " " + check_display_value(pm04_value, -1, 1, 4) + " " + check_display_value(pm10_value, -1, 1, 4);
-			display_lines[1] = "NC: " + check_display_value(nc005_value, -1, 0, 3) + " " + check_display_value(nc010_value, -1, 0, 3) + " " + check_display_value(nc025_value, -1, 0, 3) + " " + check_display_value(nc040_value, -1, 0, 3) + " " + check_display_value(nc100_value, -1, 0, 3);
-			display_lines[2] = std::move(tmpl(F("TPS: {v} µm"), check_display_value(tps_value, -1, 2, 5)));
+			if(lcd_2004){
+				display_header   = "NC05:" + check_display_value(nc005_value, -1, (nc005_value<100 ? 2:1), 5) + "   SPS30/2";
+				display_lines[0] = "NC1 :" + check_display_value(nc010_value, -1, (nc010_value<100 ? 2:1), 5);
+				display_lines[1] = "NC25:" + check_display_value(nc025_value, -1, (nc025_value<100 ? 2:1), 5);
+				display_lines[2] = "NC4 :" + check_display_value(nc040_value, -1, (nc040_value<100 ? 2:1), 5)+" NC10:"+ check_display_value(nc100_value, -1, (nc100_value<10 ? 2:1), 4);
+			}
+			else{
+				display_header = FPSTR(SENSORS_SPS30);
+				display_lines[0] = "PM: " + check_display_value(pm01_value, -1, 1, 4) + " " + check_display_value(pm25_value, -1, 1, 4) + " " + check_display_value(pm04_value, -1, 1, 4) + " " + check_display_value(pm10_value, -1, 1, 4);
+				display_lines[1] = "NC: " + check_display_value(nc005_value, -1, 1, 4) + " " + check_display_value(nc010_value, -1, 1, 4) + " " + check_display_value(nc025_value, -1, 1, 4) + " " + check_display_value(nc040_value, -1, 1, 4) + " " + check_display_value(nc100_value, -1, 1, 4);
+				display_lines[2] = std::move(tmpl(F("TPS: {v} µm"), check_display_value(tps_value, -1, 2, 5)));
+			}
 			break;
 		case 3:
 			display_header = t_sensor;
@@ -3372,7 +3408,7 @@ static void display_values() {
 				display_header += " / " + p_sensor;
 			}
 			if (t_sensor != "") { display_lines[line_count] = "Temp.: "; display_lines[line_count] += check_display_value(t_value, -128, 1, 6); display_lines[line_count++] += " °C"; }
-			if (h_sensor != "") { display_lines[line_count] = "Hum.:  "; display_lines[line_count] += check_display_value(h_value, -1, 1, 6); display_lines[line_count++] += " %"; }
+			if (h_sensor != "") { display_lines[line_count] = "Hum. : "; display_lines[line_count] += check_display_value(h_value, -1, 1, 6); display_lines[line_count++] += " %"; }
 			if (p_sensor != "") { display_lines[line_count] = "Pres.: "; display_lines[line_count] += check_display_value(p_value / 100, (-1 / 100.0), 1, 6); display_lines[line_count++] += " hPa"; }
 			while (line_count < 3) { display_lines[line_count++] = emptyString; }
 			break;
@@ -3392,9 +3428,9 @@ static void display_values() {
 			display_lines[2] = std::move(tmpl(F("LA_min: {v} db(A)"), check_display_value(la_min_value, -1, 1, 6)));
 			break;
 		case 6:
-			display_header = F("Wifi info");
-			display_lines[0] = "IP: "; display_lines[0] += WiFi.localIP().toString();
-			display_lines[1] = "SSID: "; display_lines[1] += WiFi.SSID();
+			display_header = F("Wifi Info");
+			display_lines[0] = "IP    : "; display_lines[0] += WiFi.localIP().toString();
+			display_lines[1] = "SSID  : "; display_lines[1] += WiFi.SSID();
 			display_lines[2] = std::move(tmpl(F("Signal: {v} %"), String(calcWiFiSignalQuality(last_signal_strength))));
 			break;
 		case 7:
@@ -3419,7 +3455,7 @@ static void display_values() {
 			display.display();
 		}
 		if (cfg::has_sh1106) {
-			display_sh1106.clear();
+			/*display_sh1106.clear();
 			display_sh1106.displayOn();
 			display_sh1106.setTextAlignment(TEXT_ALIGN_CENTER);
 			display_sh1106.drawString(64, 1, display_header);
@@ -3429,22 +3465,34 @@ static void display_values() {
 			display_sh1106.drawString(0, 40, display_lines[2]);
 			display_sh1106.setTextAlignment(TEXT_ALIGN_CENTER);
 			display_sh1106.drawString(64, 52, displayGenerateFooter(screen_count));
+			display_sh1106.display();*/
+			display_sh1106.clear();
+			display_sh1106.displayOn();
+			for(int i=0;i<ARRSIZE_X;i++){
+				display_sh1106.setPixel(i,(int16_t)(ARRSIZE_Y-(ARRSIZE_Y/(float)max_pm*pm25_arr[i])));
+			}
 			display_sh1106.display();
+
 		}
 		if (lcd_2004) {
-			display_header = std::move(String((next_display_count % screen_count) + 1) + '/' + String(screen_count) + ' ' + display_header);
+			if(!cfg::sps30_read)
+			  display_header = std::move(String((next_display_count % screen_count) + 1) + '/' + String(screen_count) + ' ' + display_header);
 			display_lines[0].replace(" µg/m³", emptyString);
 			display_lines[0].replace("°", String(char(223)));
 			display_lines[1].replace(" µg/m³", emptyString);
 			lcd_2004->clear();
 			lcd_2004->setCursor(0, 0);
 			lcd_2004->print(display_header);
+			Debug.println(display_header);
 			lcd_2004->setCursor(0, 1);
 			lcd_2004->print(display_lines[0]);
+			Debug.println(display_lines[0]);
 			lcd_2004->setCursor(0, 2);
 			lcd_2004->print(display_lines[1]);
+			Debug.println(display_lines[1]);
 			lcd_2004->setCursor(0, 3);
 			lcd_2004->print(display_lines[2]);
+			Debug.println(display_lines[2]);
 		}
 	}
 
@@ -3516,6 +3564,10 @@ static void init_display() {
         }
     }
     if (cfg::has_sh1106) {
+		for(int8_t i=0; i<ARRSIZE_X;i++){
+			pm25_arr[i]=0;
+			pm10_arr[i]=0;
+		}
         display_sh1106.init();
         if (cfg::has_flipped_display) {
             display_sh1106.flipScreenVertically();
@@ -3580,6 +3632,14 @@ static void initSPS30() {
 		return;
 	}
 	debug_outln_info(F(" ... found, Serial-No.: "), String(serial));
+	uint8_t major=0;
+	uint8_t minor=0;
+	if(sps30_read_firmware_version(&major, &minor) == 0){
+		debug_outln_info(F("Firmware-Version: "),String(major)+"."+String(minor));
+	}
+
+	sps30_start_manual_fan_cleaning();
+
 	if (sps30_set_fan_auto_cleaning_interval(SPS30_AUTO_CLEANING_INTERVAL) != 0) {
 		debug_outln_error(F("setting of Auto Cleaning Intervall SPS30 failed!"));
 		sps30_init_failed = true;
@@ -3958,7 +4018,6 @@ void setup(void) {
 	delay(50);
 	digitalWrite(RST_OLED, HIGH);
 #endif
-
 	Wire.begin(I2C_PIN_SDA, I2C_PIN_SCL);
 
 #if defined(ESP8266)
@@ -4021,13 +4080,21 @@ static float ExpSmoothVal(float newval,float oldSmoothedValue,float nanval)
 
     return (alpha*newval + (1.0f - alpha)*oldSmoothedValue);
 }
+void print_aligned(double val, signed char width, unsigned char prec)
+{
+  char out[15];
+
+  dtostrf(val, width, prec, out);
+  Debug.print(out);
+  Debug.print(F("\t  "));
+}
 /*****************************************************************
  * And action                                                    *
  *****************************************************************/
 void loop(void) {
 	String result_PPD, result_SDS, result_PMS, result_HPM;
 	String result_GPS, result_DNMS;
-
+//static bool header = true;
 	unsigned sum_send_time = 0;
 
 	act_micro = micros();
@@ -4056,9 +4123,14 @@ void loop(void) {
 //goal is to measure every 10s(SPS30_WAITING_AFTER_LAST_READ=15000)
 	if (cfg::sps30_read && ( !sps30_init_failed)) {
 		if ((msSince(starttime) - SPS30_read_timer) > SPS30_WAITING_AFTER_LAST_READ) {
-			int16_t ret_SPS30;
+			int16_t ret_SPS30=0;
+			uint16_t data_ready=0;
 			struct sps30_measurement sps30_values;
+			sps30_values.mc_1p0=sps30_values.mc_2p5 = sps30_values.mc_4p0= sps30_values.mc_10p0=-1.0;
+   			sps30_values.nc_0p5= sps30_values.nc_1p0 = sps30_values.nc_2p5= sps30_values.nc_4p0= sps30_values.nc_10p0= sps30_values.tps=-1.0;
 			SPS30_read_timer = msSince(starttime);
+			ret_SPS30=sps30_read_data_ready(&data_ready);
+			if(data_ready) {
 		    //debug_outln_info(F("SDS30: reading measurement ..."));
 			ret_SPS30 = sps30_read_measurement(&sps30_values);//Messwerte holen
 			//++SPS30_read_counter;
@@ -4080,6 +4152,7 @@ void loop(void) {
 				last_value_SPS30_N4 = ExpSmoothVal(sps30_values.nc_4p0-sps30_values.nc_2p5,last_value_SPS30_N4,-1.0);
 				last_value_SPS30_N10 = ExpSmoothVal(sps30_values.nc_10p0-sps30_values.nc_4p0,last_value_SPS30_N10,-1.0);
 				last_value_SPS30_TS = ExpSmoothVal(sps30_values.tps,last_value_SPS30_TS,-1.0);
+				add_PM_to_graphics_array(last_value_SPS30_P2,last_value_SPS30_P1);
 	/* https://github.com/Sensirion/arduino-sps/blob/master/examples/sps30/sps30.ino
 	// since all values include particles smaller than X, if we want to create buckets we
     // need to subtract the smaller particle count.
@@ -4102,47 +4175,29 @@ void loop(void) {
     Serial.println();
 
 				*/
-				/*RESERVE_STRING(SMdata, LARGE_STR);
-				SMdata=String(sps30_values.mc_1p0);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_P0);
-				SMdata+= ";";
-				SMdata+=String(sps30_values.mc_10p0);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_P1);
-				SMdata+= ";";
-				SMdata+=String(sps30_values.mc_2p5);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_P2);
-				SMdata+= ";";
-				SMdata+=String(sps30_values.mc_4p0);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_P4);
-				SMdata+= ";";
-				SMdata+=String(sps30_values.nc_0p5);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_N05);
-				SMdata+= ";";
-				SMdata+=String(sps30_values.nc_1p0);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_N1);
-				SMdata+= ";";
-				SMdata+=String(sps30_values.nc_2p5);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_N25);
-				SMdata+= ";";
-				SMdata+=String(sps30_values.nc_4p0);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_N4);
-				SMdata+= ";";
-				SMdata+=String(sps30_values.nc_10p0);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_N10);
-				SMdata+= ";";
-				SMdata+=String(sps30_values.tps);
-				SMdata+= ";";
-				SMdata+=String(last_value_SPS30_TS);
-				debug_outln_info(SMdata);*/
+ // only print header first time
+ /* if (header) {
+    Debug.println(F("----------------------------Mass -----------------------------    -------------------------------- Number ---------------------------------      -------Partsize --------"));
+    Debug.println(F("                     Concentration [μg/m3]                                                 Concentration [#/cm3]                                           [μm]"));
+    Debug.print(F(" PM1.0             PM2.5           PM4.0           PM10             NC0.5           NC1.0           NC2.5           NC4.0           NC10          Typical"));
+    Debug.println(F(" samples\n"));
+    header = false;
+
+
+  }
+
+  print_aligned((double) last_value_SPS30_P0, 8, 5);
+  print_aligned((double) last_value_SPS30_P2, 8, 5);
+  print_aligned((double) last_value_SPS30_P4, 8, 5);
+  print_aligned((double) last_value_SPS30_P1, 8, 5);
+  print_aligned((double) last_value_SPS30_N05, 9, 5);
+  print_aligned((double) last_value_SPS30_N1, 9, 5);
+  print_aligned((double) last_value_SPS30_N25, 9, 5);
+  print_aligned((double) last_value_SPS30_N4, 9, 5);
+  print_aligned((double) last_value_SPS30_N10, 9, 5);
+  print_aligned((double) last_value_SPS30_TS, 7, 5);
+
+*/
 
 /*
 				value_SPS30_P0 += sps30_values.mc_1p0;
@@ -4158,6 +4213,7 @@ void loop(void) {
 				++SPS30_measurement_count;*/
 			}
 		//debug_outln_info(F("SDS30: measurement done"));
+		}
 		}
 	}
 

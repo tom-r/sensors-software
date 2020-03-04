@@ -63,6 +63,16 @@ int16_t sps30_probe() {
 }
 */
 
+int16_t sps30_read_firmware_version(uint8_t *major, uint8_t *minor) {
+    uint16_t version;
+    int16_t ret;
+
+    ret = sensirion_i2c_read_cmd(SPS_I2C_ADDRESS,
+                                 SPS_CMD_GET_FIRMWARE_VERSION, &version, 1);
+    *major = (version & 0xff00) >> 8;
+    *minor = (version & 0x00ff);
+    return ret;
+}
 
 int16_t sps30_get_serial(char *serial) {
   uint16_t i;
@@ -89,11 +99,13 @@ int16_t sps30_start_measurement() {
   const uint16_t arg = SPS_CMD_START_MEASUREMENT_ARG;
 
   return sensirion_i2c_write_cmd_with_args(SPS_I2C_ADDRESS, SPS_CMD_START_MEASUREMENT, &arg, SENSIRION_NUM_WORDS(arg));
+  sensirion_sleep_usec(SPS_CMD_DELAY_USEC);
 }
 
 //TR einkommentiert
 int16_t sps30_stop_measurement() {
   return sensirion_i2c_write_cmd(SPS_I2C_ADDRESS, SPS_CMD_STOP_MEASUREMENT);
+  sensirion_sleep_usec(SPS_CMD_DELAY_USEC);
 }
 
 
@@ -105,7 +117,8 @@ int16_t sps30_read_data_ready(uint16_t *data_ready) {
 int16_t sps30_read_measurement(struct sps30_measurement *measurement) {
   int16_t ret;
   uint16_t idx;
-  union {
+  //union {
+  union __attribute((__packed__)){
     uint16_t uu[2];
     uint32_t u;
     float f;
@@ -129,7 +142,7 @@ int16_t sps30_read_measurement(struct sps30_measurement *measurement) {
   measurement->mc_4p0 = val.f;
   ++idx;
   val.u = be32_to_cpu(data[idx].u);
-  measurement->mc_10p0 = val.f;
+ measurement->mc_10p0 = val.f;
   ++idx;
   val.u = be32_to_cpu(data[idx].u);
   measurement->nc_0p5 = val.f;
@@ -177,8 +190,7 @@ int16_t sps30_set_fan_auto_cleaning_interval(uint32_t interval_seconds) {
                            (uint16_t)((interval_seconds & 0x0000FFFF) >> 0)};
 
   ret = sensirion_i2c_write_cmd_with_args(SPS_I2C_ADDRESS,  SPS_CMD_AUTOCLEAN_INTERVAL, data, SENSIRION_NUM_WORDS(data));
-//  sensirion_sleep_usec(SPS_WRITE_DELAY_US);
-  delay((SPS_WRITE_DELAY_US / 1000)+1); //TR
+  sensirion_sleep_usec(SPS_WRITE_DELAY_US);
   return ret;
 }
 
@@ -227,13 +239,13 @@ int16_t sensirion_i2c_read_cmd(uint8_t address, uint16_t cmd, uint16_t *data_wor
 int16_t sensirion_i2c_read_cmd(uint8_t address, uint16_t cmd, uint16_t *data_words, uint16_t num_words) {
   int16_t ret;
   uint8_t buf[SENSIRION_COMMAND_SIZE];
-
+  //buf[0]=buf[1]=0;
   sensirion_fill_cmd_send_buf(buf, cmd, NULL, 0);
   ret = sensirion_i2c_write(address, buf, SENSIRION_COMMAND_SIZE);
   if (ret != STATUS_OK) {
     return ret;
   }
-  delay((SPS_WRITE_DELAY_US / 1000)+1); //TR
+  sensirion_sleep_usec(SPS_WRITE_DELAY_US);
 
   return sensirion_i2c_read_words(address, data_words, num_words);
 }
@@ -272,11 +284,11 @@ int8_t sensirion_i2c_write(uint8_t address, const uint8_t* data, uint16_t count)
 
    @param useconds the sleep time in microseconds
 */
-/*
+
 void sensirion_sleep_usec(uint32_t useconds) {
   delay((useconds / 1000) + 1);
 }
-*/
+
 
 
 uint8_t sensirion_common_generate_crc(uint8_t *data, uint16_t count) {
@@ -376,15 +388,14 @@ int16_t sensirion_i2c_write_cmd_with_args(uint8_t address, uint16_t command, con
   buf_size = sensirion_fill_cmd_send_buf(buf, command, data_words, num_words);
   return sensirion_i2c_write(address, buf, buf_size);
 }
-/*int16_t sps30_start_manual_fan_cleaning() {
+int16_t sps30_start_manual_fan_cleaning() {
     int16_t ret;
 
-    ret = sensirion_i2c_write_cmd(SPS30_I2C_ADDRESS,
+    ret = sensirion_i2c_write_cmd(SPS_I2C_ADDRESS,
                                   SPS_CMD_START_MANUAL_FAN_CLEANING);
     if (ret)
         return ret;
 
-    //sensirion_sleep_usec(SPS_CMD_DELAY_USEC);
-    delay(10);
+    sensirion_sleep_usec(SPS_CMD_DELAY_USEC);
     return 0;
-}*/
+}

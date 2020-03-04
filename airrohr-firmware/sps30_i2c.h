@@ -42,6 +42,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+
 #define SPS_I2C_ADDRESS 0x69
 #define SPS_MAX_SERIAL_LEN 32
 #define SENSIRION_WORD_SIZE         2
@@ -61,17 +62,17 @@
 #define SPS_CMD_READ_MEASUREMENT        0x0300
 #define SPS_CMD_GET_DATA_READY          0x0202
 #define SPS_CMD_AUTOCLEAN_INTERVAL      0x8004
+#define SPS_CMD_GET_FIRMWARE_VERSION    0xd100
 #define SPS_CMD_GET_SERIAL              0xd033
 #define SPS_CMD_RESET                   0xd304
-#define SPS_WRITE_DELAY_US              20000
+#define SPS_CMD_DELAY_USEC              10000
+#define SPS_WRITE_DELAY_US              15000
 
-//#define SPS_CMD_START_MANUAL_FAN_CLEANING 0x5607
+#define SPS_CMD_START_MANUAL_FAN_CLEANING 0x5607
 //#define SPS30_I2C_ADDRESS 0x69
 
-
 #define be16_to_cpu(s) (((uint16_t)(s) << 8) | (0xff & ((uint16_t)(s)) >> 8))
-#define be32_to_cpu(s) (((uint32_t)be16_to_cpu(s) << 16) | \
-                        (0xffff & (be16_to_cpu((s) >> 16))))
+#define be32_to_cpu(s) (((uint32_t)be16_to_cpu(s) << 16) | (0xffff & (be16_to_cpu((s) >> 16))))
 
 /**
    Convert a word-array to a bytes-array, effectively reverting the
@@ -113,7 +114,7 @@ int16_t sps30_reset();
 /*
 int16_t sps30_probe();
 */
-
+int16_t sps30_read_firmware_version(uint8_t *major, uint8_t *minor);
 /**
    sps30_get_serial() - retrieve the serial number
 
@@ -157,9 +158,9 @@ int8_t sensirion_i2c_read(uint8_t address, uint8_t* data, uint16_t count);
 
 int8_t sensirion_i2c_write(uint8_t address, const uint8_t* data, uint16_t count);
 
-/*
+
 void sensirion_sleep_usec(uint32_t useconds);
-*/
+
 
 uint8_t sensirion_common_generate_crc(uint8_t *data, uint16_t count);
 
@@ -175,4 +176,4 @@ int16_t sensirion_i2c_write_cmd(uint8_t address, uint16_t command);
 
 int16_t sensirion_i2c_write_cmd_with_args(uint8_t address, uint16_t command, const uint16_t *data_words, uint16_t num_words);
 //TR dazu
-//int16_t sps30_start_manual_fan_cleaning();
+int16_t sps30_start_manual_fan_cleaning();

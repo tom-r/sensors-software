@@ -40,7 +40,7 @@
 */
 
 #include "./sps30_i2c.h"
-
+#include "./utils.h"
 /*
   void sps30_reset() {
   set_pointer(SPS_CMD_RESET);
@@ -117,8 +117,8 @@ int16_t sps30_read_data_ready(uint16_t *data_ready) {
 int16_t sps30_read_measurement(struct sps30_measurement *measurement) {
   int16_t ret;
   uint16_t idx;
-  //union {
-  union __attribute((__packed__)){
+  union {
+  //union __attribute((__packed__)){
     uint16_t uu[2];
     uint32_t u;
     float f;
@@ -129,6 +129,7 @@ int16_t sps30_read_measurement(struct sps30_measurement *measurement) {
 //    Serial.println("Fehler beim I²C read command");
     return ret;
   }
+
   SENSIRION_WORDS_TO_BYTES(data->uu, SENSIRION_NUM_WORDS(data));
 
   idx = 0;
@@ -142,7 +143,7 @@ int16_t sps30_read_measurement(struct sps30_measurement *measurement) {
   measurement->mc_4p0 = val.f;
   ++idx;
   val.u = be32_to_cpu(data[idx].u);
- measurement->mc_10p0 = val.f;
+  measurement->mc_10p0 = val.f;
   ++idx;
   val.u = be32_to_cpu(data[idx].u);
   measurement->nc_0p5 = val.f;
@@ -161,7 +162,7 @@ int16_t sps30_read_measurement(struct sps30_measurement *measurement) {
   ++idx;
   val.u = be32_to_cpu(data[idx].u);
   measurement->tps = val.f;
-  ++idx;
+ // ++idx;
 
   return 0;
 }
@@ -253,15 +254,21 @@ int16_t sensirion_i2c_read_cmd(uint8_t address, uint16_t cmd, uint16_t *data_wor
 
 int8_t sensirion_i2c_read(uint8_t address, uint8_t* data, uint16_t count) {
   uint8_t rxByteCount = 0;
-    uint8_t readData[count]; //TR
-
+  uint8_t readData[count]; //TR
+  Wire.flush();
   // 2 bytes RH, 1 CRC, 2 bytes T, 1 CRC
   Wire.requestFrom(address, (uint8_t)count);
+   do{
+    delay (10);
+  }
+  while(!Wire.available());
 
   while (Wire.available()) { // wait till all arrive
     //TRdata[rxByteCount++] = Wire.read();
     readData[rxByteCount++] = Wire.read();//TR
     if (rxByteCount >= count) {
+     // while (Wire.read() != -1)
+     //   ;
       break;
     }
   }

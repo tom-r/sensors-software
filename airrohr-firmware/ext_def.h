@@ -228,7 +228,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define SPS30_READ 0
 #define SPS30_API_PIN 1
 #define SPS30_WAITING_AFTER_LAST_READ 5000   // waiting time after last reading mesurement data in ms
-#define SPS30_AUTO_CLEANING_INTERVAL 86400 // time in seconds
+#define SPS30_AUTO_CLEANING_INTERVAL 7200 // time in seconds
 
 // BMP180, temperature, pressure
 #define BMP_READ 0
@@ -279,6 +279,9 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 
 // OLED Display SH1106 connected?
 #define HAS_SH1106 0
+
+// OLED Display SH1106 Grafikausgabe ?
+#define HAS_SH1106_GRAFIK 0
 
 // OLED Display um 180° gedreht?
 #define HAS_FLIPPED_DISPLAY 0

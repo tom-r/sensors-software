@@ -469,7 +469,9 @@ void yield_for_serial_buffer(size_t length) {
 	while (serialSDS.available() < (int) length &&
 				millis() - startMillis < yield_timeout) {
 		yield();
+#if defined(ESP8266)
 		serialSDS.perform_work();
+#endif
 	}
 }
 

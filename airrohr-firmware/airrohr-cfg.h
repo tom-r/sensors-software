@@ -64,6 +64,7 @@ enum ConfigShapeId {
 	Config_use_beta,
 	Config_has_display,
 	Config_has_sh1106,
+	Config_has_sh1106_grafik,
 	Config_has_flipped_display,
 	Config_has_lcd1602,
 	Config_has_lcd1602_27,
@@ -90,7 +91,7 @@ enum ConfigShapeId {
 	Config_pwd_influx,
 	Config_measurement_name_influx,
 	Config_ssl_influx,
-	Config_local_altitude
+	Config_local_altitude,
 };
 const char CFG_KEY_CURRENT_LANG[] PROGMEM = "current_lang";
 const char CFG_KEY_WLANSSID[] PROGMEM = "wlanssid";
@@ -132,6 +133,7 @@ const char CFG_KEY_AUTO_UPDATE[] PROGMEM = "auto_update";
 const char CFG_KEY_USE_BETA[] PROGMEM = "use_beta";
 const char CFG_KEY_HAS_DISPLAY[] PROGMEM = "has_display";
 const char CFG_KEY_HAS_SH1106[] PROGMEM = "has_sh1106";
+const char CFG_KEY_HAS_SH1106_GRAFIK[] PROGMEM = "has_sh1106_grafik";
 const char CFG_KEY_HAS_FLIPPED_DISPLAY[] PROGMEM = "has_flipped_display";
 const char CFG_KEY_HAS_LCD1602[] PROGMEM = "has_lcd1602";
 const char CFG_KEY_HAS_LCD1602_27[] PROGMEM = "has_lcd1602_27";
@@ -200,6 +202,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_USE_BETA), &cfg::use_beta },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_HAS_DISPLAY), &cfg::has_display },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_HAS_SH1106), &cfg::has_sh1106 },
+	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_HAS_SH1106_GRAFIK), &cfg::has_sh1106_grafik },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_HAS_FLIPPED_DISPLAY), &cfg::has_flipped_display },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_HAS_LCD1602), &cfg::has_lcd1602 },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_HAS_LCD1602_27), &cfg::has_lcd1602_27 },
@@ -226,5 +229,5 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_Password, sizeof(cfg::pwd_influx)-1, FPSTR(CFG_KEY_PWD_INFLUX), cfg::pwd_influx },
 	{ Config_Type_String, sizeof(cfg::measurement_name_influx)-1, FPSTR(CFG_KEY_MEASUREMENT_NAME_INFLUX), cfg::measurement_name_influx },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_SSL_INFLUX), &cfg::ssl_influx },
-	{ Config_Type_String, sizeof(cfg::local_altitude)-1, FPSTR(CFG_KEY_LOCAL_ALTITUDE), cfg::local_altitude }
+	{ Config_Type_String, sizeof(cfg::local_altitude)-1, FPSTR(CFG_KEY_LOCAL_ALTITUDE), cfg::local_altitude },
 };

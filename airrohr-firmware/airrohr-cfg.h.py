@@ -41,6 +41,7 @@ Bool		auto_update
 Bool		use_beta
 Bool		has_display
 Bool		has_sh1106
+Bool		has_sh1106_grafik
 Bool		has_flipped_display
 Bool		has_lcd1602
 Bool		has_lcd1602_27

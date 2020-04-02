@@ -27,6 +27,7 @@
  * https://thingpulse.com
  *
  */
+#pragma once
 
 #ifndef SH1106Wire_h
 #define SH1106Wire_h
@@ -59,7 +60,7 @@ class SH1106Wire : public OLEDDisplay {
       Wire.begin(this->_sda, this->_scl);
       // Let's use ~700khz if ESP8266 is in 160Mhz mode
       // this will be limited to ~400khz if the ESP8266 in 80Mhz mode.
-      //Wire.setClock(200000);
+      //Wire.setClock(700000);
       return true;
     }
 

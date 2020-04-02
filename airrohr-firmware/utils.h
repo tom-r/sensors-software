@@ -25,17 +25,20 @@
 #define utils_h
 
 #include <WString.h>
-#include <Hash.h>
+//#include <Hash.h>
 #include <coredecls.h>
 #if defined(ESP8266)
+#include <Hash.h>
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>
 #endif
 
 #if defined(ESP32)
+#define UART0 0
+#include <hwcrypto/sha.h>
 //#include <Hash.h>
 //#include <coredecls.h>
-#include <WiFi.h>
+//#include <WiFi.h>
 #include <WiFiServer.h>
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>

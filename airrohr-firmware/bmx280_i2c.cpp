@@ -2,7 +2,7 @@
  * @file BMX280_i2c.h
  *
  *  Copied from Adafruits BME280 Library. SPI removed, BMP280 added
- * 
+ *
  *  Driver for the BMX280 humidity, temperature & pressure sensor
  *
  * These sensors use I2C or SPI to communicate, 2 or 4 pins are required
@@ -144,7 +144,7 @@ void BMX280::setSampling(sensor_mode mode,
   // making sure sensor is in sleep mode before setting configuration
   // as it otherwise may be ignored
   write8(BMX280_REGISTER_CONTROL, MODE_SLEEP);
- 
+
   if (_sensorID == BME280_SENSOR_ID) {
     // you must make sure to also set REGISTER_CONTROL after setting the
     // CONTROLHUMID register, otherwise the values won't be applied (see
@@ -187,6 +187,7 @@ uint16_t BMX280::read16_LE(uint8_t reg) {
   _wire->write((uint8_t)reg);
   _wire->endTransmission();
   _wire->requestFrom((uint8_t)_i2caddr, (uint8_t)2);
+
   value = _wire->read();
   value |= (uint16_t) _wire->read() << 8;
   return value;

@@ -27,6 +27,7 @@
  * https://thingpulse.com
  *
  */
+#pragma once
 
 #ifndef SSD1306Wire_h
 #define SSD1306Wire_h

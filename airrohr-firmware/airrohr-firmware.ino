@@ -112,7 +112,11 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include <DallasTemperature.h>
 #include <TinyGPS++.h>
 #include "./bmx280_i2c.h"
-#include "./sps30_i2c.h"
+//#include "./sps30_i2c.h"
+#include "sensirion_uart.h"
+#include "sps30.h"
+
+
 #include "./dnms_i2c.h"
 
 #include "./intl.h"
@@ -3666,9 +3670,12 @@ static bool initBMX280(char addr) {
    Init SPS30 PM Sensor
  *****************************************************************/
 static void initSPS30() {
-	char serial[SPS_MAX_SERIAL_LEN];
-	debug_out(F("Trying SPS30 sensor on 0x69H "), DEBUG_MIN_INFO);
-	sps30_reset();
+	sensirion_uart_open();
+	char serial[SPS30_MAX_SERIAL_LEN];
+	debug_out(F("Trying SPS30 sensor on UART2 "), DEBUG_MIN_INFO);
+	uint16_t ret=-1;
+	 ret=sps30_reset();
+	debug_outln_info(F(" SPS30 reset returns: "), String(ret));
 	delay(200);
 	if ( sps30_get_serial(serial) != 0 ) {
 		debug_outln_info(FPSTR(DBG_TXT_NOT_FOUND));
@@ -3678,12 +3685,12 @@ static void initSPS30() {
 		return;
 	}
 	debug_outln_info(F(" ... found, Serial-No.: "), String(serial));
-	uint8_t major=0;
+	/*uint8_t major=0;
 	uint8_t minor=0;
 	if(sps30_read_firmware_version(&major, &minor) == 0){
 		debug_outln_info(F("Firmware-Version: "),String(major)+"."+String(minor));
 	}
-
+*/
 
 	if (sps30_set_fan_auto_cleaning_interval(SPS30_AUTO_CLEANING_INTERVAL) != 0) {
 		debug_outln_error(F("setting of Auto Cleaning Intervall SPS30 failed!"));
@@ -3880,41 +3887,23 @@ static void setupNetworkTime() {
 }
 #endif
 #if defined(ESP32)
-void time_is_set (void) {
-	sntp_time_is_set = true;
-}
-
 static bool acquireNetworkTime() {
-	int retryCount = 0;
-	debug_outln(F("Setting time using SNTP"), DEBUG_MIN_INFO);
-	time_t now = time(nullptr);
-	debug_outln(String(ctime(&now)), DEBUG_MIN_INFO);
-	debug_outln(F("NTP.org:"), DEBUG_MIN_INFO);
-	configTime(8 * 3600, 0, "pool.ntp.org");
-	while (retryCount++ < 20) {
-		// later than 2000/01/01:00:00:00
-		if (sntp_time_is_set) {
-			now = time(nullptr);
-			debug_outln(String(ctime(&now)), DEBUG_MIN_INFO);
-			return true;
-		}
-		delay(500);
-		debug_out(F("."), DEBUG_MIN_INFO);
+	const char* ntpServer = "pool.ntp.org";
+	const long  gmtOffset_sec = 3600;
+	const int   daylightOffset_sec = 3600;
+	struct tm timeinfo;
+	configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+  	if(!getLocalTime(&timeinfo)){
+    	Debug.println("Failed to obtain time");
+		sntp_time_is_set = false;
+    	return false;
+  	}
+  	else{
+    	Debug.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+		sntp_time_is_set = true;
+		return true;
 	}
-	debug_outln(F("\nrouter/gateway:"), DEBUG_MIN_INFO);
-	retryCount = 0;
-	configTime(0, 0, WiFi.gatewayIP().toString().c_str());
-	while (retryCount++ < 20) {
-		// later than 2000/01/01:00:00:00
-		if (sntp_time_is_set) {
-			now = time(nullptr);
-			debug_outln(String(ctime(&now)), DEBUG_MIN_INFO);
-			return true;
-		}
-		delay(500);
-		debug_out(F("."), DEBUG_MIN_INFO);
-	}
-	return false;
 }
 #endif
 static unsigned long sendDataToOptionalApis( String &data) {
@@ -4074,7 +4063,6 @@ static unsigned long sendDataToOptionalApis( String &data) {
 
 	return sum_send_time;
 }
-
 /*****************************************************************
  * The Setup                                                     *
  *****************************************************************/
@@ -4125,13 +4113,14 @@ void setup(void) {
 
 	init_config();
 	init_display();
+	connectWifi();
+
 #if defined(ESP8266)
 	setupNetworkTime();
 #endif
 #if defined(ESP32)
 	acquireNetworkTime();
 #endif
-	connectWifi();
 	setup_webserver();
 	createLoggerConfigs();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
@@ -4158,6 +4147,7 @@ void setup(void) {
 	starttime = millis();									// store the start time
 	last_update_attempt = time_point_device_start_ms = starttime;
 	last_display_millis = starttime_SDS = starttime;
+
 }
 /*static double ExpSmoothVal(float newval,float oldSmoothedValue,float nanval)
 {
@@ -4208,52 +4198,51 @@ void loop(void) {
 		UPDATE_MIN_MAX(min_micro, max_micro, diff_micro);
 	}
 	last_micro = act_micro;
-//goal is to measure every 10s(SPS30_WAITING_AFTER_LAST_READ=15000)
+
 	if (cfg::sps30_read && ( !sps30_init_failed)) {
 		if ((msSince(starttime) - SPS30_read_timer) > SPS30_WAITING_AFTER_LAST_READ) {
 			int16_t ret_SPS30=0;
-			uint16_t data_ready=0;
+			//uint16_t data_ready=0;
 			struct sps30_measurement sps30_values;
 			sps30_values.mc_1p0=sps30_values.mc_2p5 = sps30_values.mc_4p0= sps30_values.mc_10p0=-1.0F;
    			sps30_values.nc_0p5= sps30_values.nc_1p0 = sps30_values.nc_2p5= sps30_values.nc_4p0= sps30_values.nc_10p0= sps30_values.tps=-1.0F;
 			SPS30_read_timer = msSince(starttime);
-			ret_SPS30=sps30_read_data_ready(&data_ready);
-			if(data_ready) {
-		    	//debug_outln_info(F("SDS30: reading measurement ..."));
+			//ret_SPS30=sps30_read_data_ready(&data_ready);
+			//if(data_ready) {
 				ret_SPS30 = sps30_read_measurement(&sps30_values);//Messwerte holen
 				//delay(200);
 				//++SPS30_read_counter;
 				if (ret_SPS30 < 0) {
-					debug_outln_info(F("SPS30 error reading measurement"));
+					debug_outln_info(F("SPS30 error reading measurement"), String(SPS30_IS_ERR_STATE(ret_SPS30)));
 					SPS30_read_error_counter++;
 				}
 				else {
-					if (SPS_IS_ERR_STATE(ret_SPS30)) {
+					if (SPS30_IS_ERR_STATE(ret_SPS30)) {
 						debug_outln_info(F("SPS30 measurements may not be accurate"));
 						SPS30_read_error_counter++;
-				}
-				last_value_SPS30_P0 = sps30_values.mc_1p0;
-				last_value_SPS30_P10 = sps30_values.mc_10p0;
-				last_value_SPS30_P2 = sps30_values.mc_2p5;
-				last_value_SPS30_P4 = sps30_values.mc_4p0;
-				last_value_SPS30_N05 = sps30_values.nc_0p5;
-				last_value_SPS30_N1 = sps30_values.nc_1p0-sps30_values.nc_0p5;
-				last_value_SPS30_N25 = sps30_values.nc_2p5-sps30_values.nc_1p0;
-				last_value_SPS30_N4 = sps30_values.nc_4p0-sps30_values.nc_2p5;
-				last_value_SPS30_N10 = sps30_values.nc_10p0-sps30_values.nc_4p0;
-				last_value_SPS30_TS = sps30_values.tps;
+					}
+					last_value_SPS30_P0 = sps30_values.mc_1p0;
+					last_value_SPS30_P10 = sps30_values.mc_10p0;
+					last_value_SPS30_P2 = sps30_values.mc_2p5;
+					last_value_SPS30_P4 = sps30_values.mc_4p0;
+					last_value_SPS30_N05 = sps30_values.nc_0p5;
+					last_value_SPS30_N1 = sps30_values.nc_1p0-sps30_values.nc_0p5;
+					last_value_SPS30_N25 = sps30_values.nc_2p5-sps30_values.nc_1p0;
+					last_value_SPS30_N4 = sps30_values.nc_4p0-sps30_values.nc_2p5;
+					last_value_SPS30_N10 = sps30_values.nc_10p0-sps30_values.nc_4p0;
+					last_value_SPS30_TS = sps30_values.tps;
 
-				/*last_value_SPS30_P0 = ExpSmoothVal(sps30_values.mc_1p0,last_value_SPS30_P0,-1.0);
-				last_value_SPS30_P10 = ExpSmoothVal(sps30_values.mc_10p0,last_value_SPS30_P10,-1.0);
-				last_value_SPS30_P2 = ExpSmoothVal(sps30_values.mc_2p5,last_value_SPS30_P2,-1.0);
-				last_value_SPS30_P4 = ExpSmoothVal(sps30_values.mc_4p0,last_value_SPS30_P4,-1.0);
-				last_value_SPS30_N05 = ExpSmoothVal(sps30_values.nc_0p5,last_value_SPS30_N05,-1.0);
-				last_value_SPS30_N1 = ExpSmoothVal(sps30_values.nc_1p0-sps30_values.nc_0p5,last_value_SPS30_N1,-1.0);
-				last_value_SPS30_N25 = ExpSmoothVal(sps30_values.nc_2p5-sps30_values.nc_1p0,last_value_SPS30_N25,-1.0);
-				last_value_SPS30_N4 = ExpSmoothVal(sps30_values.nc_4p0-sps30_values.nc_2p5,last_value_SPS30_N4,-1.0);
-				last_value_SPS30_N10 = ExpSmoothVal(sps30_values.nc_10p0-sps30_values.nc_4p0,last_value_SPS30_N10,-1.0);
-				last_value_SPS30_TS = ExpSmoothVal(sps30_values.tps,last_value_SPS30_TS,-1.0);*/
-				add_PM_to_graphics_array(last_value_SPS30_P2,last_value_SPS30_P10);
+					/*last_value_SPS30_P0 = ExpSmoothVal(sps30_values.mc_1p0,last_value_SPS30_P0,-1.0);
+					last_value_SPS30_P10 = ExpSmoothVal(sps30_values.mc_10p0,last_value_SPS30_P10,-1.0);
+					last_value_SPS30_P2 = ExpSmoothVal(sps30_values.mc_2p5,last_value_SPS30_P2,-1.0);
+					last_value_SPS30_P4 = ExpSmoothVal(sps30_values.mc_4p0,last_value_SPS30_P4,-1.0);
+					last_value_SPS30_N05 = ExpSmoothVal(sps30_values.nc_0p5,last_value_SPS30_N05,-1.0);
+					last_value_SPS30_N1 = ExpSmoothVal(sps30_values.nc_1p0-sps30_values.nc_0p5,last_value_SPS30_N1,-1.0);
+					last_value_SPS30_N25 = ExpSmoothVal(sps30_values.nc_2p5-sps30_values.nc_1p0,last_value_SPS30_N25,-1.0);
+					last_value_SPS30_N4 = ExpSmoothVal(sps30_values.nc_4p0-sps30_values.nc_2p5,last_value_SPS30_N4,-1.0);
+					last_value_SPS30_N10 = ExpSmoothVal(sps30_values.nc_10p0-sps30_values.nc_4p0,last_value_SPS30_N10,-1.0);
+					last_value_SPS30_TS = ExpSmoothVal(sps30_values.tps,last_value_SPS30_TS,-1.0);*/
+					add_PM_to_graphics_array(last_value_SPS30_P2,last_value_SPS30_P10);
 	/* https://github.com/Sensirion/arduino-sps/blob/master/examples/sps30/sps30.ino
 	// since all values include particles smaller than X, if we want to create buckets we
     // need to subtract the smaller particle count.
@@ -4319,7 +4308,7 @@ void loop(void) {
 				++SPS30_measurement_count;*/
 				}
 		//debug_outln_info(F("SDS30: measurement done"));
-			}
+			//}
 		}
 	}
 	if (cfg::ppd_read) {

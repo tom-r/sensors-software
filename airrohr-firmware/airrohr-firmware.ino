@@ -3668,6 +3668,9 @@ static bool initBMX280(char addr) {
 static void initSPS30() {
 	char serial[SPS_MAX_SERIAL_LEN];
 	debug_out(F("Trying SPS30 sensor on 0x69H "), DEBUG_MIN_INFO);
+//#if defined(ESP8266)
+//  Wire.setClockStretchLimit(20000);
+//#endif
 	sps30_reset();
 	delay(200);
 	if ( sps30_get_serial(serial) != 0 ) {

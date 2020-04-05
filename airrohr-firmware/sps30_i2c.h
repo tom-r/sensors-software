@@ -66,7 +66,8 @@
 #define SPS_CMD_GET_SERIAL              0xd033
 #define SPS_CMD_RESET                   0xd304
 #define SPS_CMD_DELAY_USEC              10000
-#define SPS_WRITE_DELAY_US              7350
+//#define SPS_WRITE_DELAY_US              7350
+#define SPS_WRITE_DELAY_US              20000
 #define SPS_CMD_START_MANUAL_FAN_CLEANING 0x5607
 //#define SPS30_I2C_ADDRESS 0x69
 

@@ -96,6 +96,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #endif
 
 //includes common to ESP8266 and ESP32 (especially external libraries)
+#include "./SPS30.h"
 #include "./oledfont.h"				// avoids including the default Arial font, needs to be included before SSD1306.h
 #include "./SH1106Wire.h"
 #include "./SSD1306Wire.h"
@@ -112,7 +113,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include <DallasTemperature.h>
 #include <TinyGPS++.h>
 #include "./bmx280_i2c.h"
-#include "./sps30_i2c.h"
+//#include "./sps30_i2c.h"
 #include "./dnms_i2c.h"
 
 #include "./intl.h"
@@ -296,6 +297,8 @@ SoftwareSerial* serialGPS;
 #define serialGPS (&(Serial2))
 #endif
 
+//Sparkfun
+SPS30 sps30;
 /*****************************************************************
  * DHT declaration                                               *
  *****************************************************************/
@@ -3666,11 +3669,12 @@ static bool initBMX280(char addr) {
    Init SPS30 PM Sensor
  *****************************************************************/
 static void initSPS30() {
-	char serial[SPS_MAX_SERIAL_LEN];
+	//char serial[SPS_MAX_SERIAL_LEN];
 	debug_out(F("Trying SPS30 sensor on 0x69H "), DEBUG_MIN_INFO);
-	sps30_reset();
+	sps30.begin();
+	//sps30_reset();
 	delay(200);
-	if ( sps30_get_serial(serial) != 0 ) {
+	/*if ( sps30_get_serial(serial) != 0 ) {
 		debug_outln_info(FPSTR(DBG_TXT_NOT_FOUND));
 
 		debug_outln_info(F("Check SPS30 wiring"));
@@ -3683,20 +3687,20 @@ static void initSPS30() {
 	if(sps30_read_firmware_version(&major, &minor) == 0){
 		debug_outln_info(F("Firmware-Version: "),String(major)+"."+String(minor));
 	}
+*/
 
-
-	if (sps30_set_fan_auto_cleaning_interval(SPS30_AUTO_CLEANING_INTERVAL) != 0) {
+	if (!sps30.setCleaningInterval(SPS30_AUTO_CLEANING_INTERVAL)) {
 		debug_outln_error(F("setting of Auto Cleaning Intervall SPS30 failed!"));
 		sps30_init_failed = true;
 		return;
 	}
-	delay(100);
+	/*delay(100);
 	if (sps30_start_measurement() != 0) {
 		debug_outln_error(F("SPS30 error starting measurement"));
 		sps30_init_failed = true;
 		return;
 	}
-	delay(1000);
+	delay(1000);*/
 	//sps30_start_manual_fan_cleaning();
 
 }
@@ -4211,19 +4215,25 @@ void loop(void) {
 //goal is to measure every 10s(SPS30_WAITING_AFTER_LAST_READ=15000)
 	if (cfg::sps30_read && ( !sps30_init_failed)) {
 		if ((msSince(starttime) - SPS30_read_timer) > SPS30_WAITING_AFTER_LAST_READ) {
-			int16_t ret_SPS30=0;
-			uint16_t data_ready=0;
-			struct sps30_measurement sps30_values;
+			//int16_t ret_SPS30=0;
+			//uint16_t data_ready=0;
+		/*	struct sps30_measurement sps30_values;
 			sps30_values.mc_1p0=sps30_values.mc_2p5 = sps30_values.mc_4p0= sps30_values.mc_10p0=-1.0F;
-   			sps30_values.nc_0p5= sps30_values.nc_1p0 = sps30_values.nc_2p5= sps30_values.nc_4p0= sps30_values.nc_10p0= sps30_values.tps=-1.0F;
+   			sps30_values.nc_0p5= sps30_values.nc_1p0 = sps30_values.nc_2p5= sps30_values.nc_4p0= sps30_values.nc_10p0= sps30_values.tps=-1.0F;*/
 			SPS30_read_timer = msSince(starttime);
-			ret_SPS30=sps30_read_data_ready(&data_ready);
-			if(data_ready) {
+			//ret_SPS30=sps30_read_data_ready(&data_ready);
+			if(sps30.dataAvailable()) {
+				float mass_concen[4];
+    			sps30.getMass(mass_concen);
+
+    			float num_concen[6];
+    			sps30.getNum(num_concen);
+
 		    	//debug_outln_info(F("SDS30: reading measurement ..."));
-				ret_SPS30 = sps30_read_measurement(&sps30_values);//Messwerte holen
+				//ret_SPS30 = sps30_read_measurement(&sps30_values);//Messwerte holen
 				//delay(200);
 				//++SPS30_read_counter;
-				if (ret_SPS30 < 0) {
+				/*if (ret_SPS30 < 0) {
 					debug_outln_info(F("SPS30 error reading measurement"));
 					SPS30_read_error_counter++;
 				}
@@ -4231,17 +4241,17 @@ void loop(void) {
 					if (SPS_IS_ERR_STATE(ret_SPS30)) {
 						debug_outln_info(F("SPS30 measurements may not be accurate"));
 						SPS30_read_error_counter++;
-				}
-				last_value_SPS30_P0 = sps30_values.mc_1p0;
-				last_value_SPS30_P10 = sps30_values.mc_10p0;
-				last_value_SPS30_P2 = sps30_values.mc_2p5;
-				last_value_SPS30_P4 = sps30_values.mc_4p0;
-				last_value_SPS30_N05 = sps30_values.nc_0p5;
-				last_value_SPS30_N1 = sps30_values.nc_1p0-sps30_values.nc_0p5;
-				last_value_SPS30_N25 = sps30_values.nc_2p5-sps30_values.nc_1p0;
-				last_value_SPS30_N4 = sps30_values.nc_4p0-sps30_values.nc_2p5;
-				last_value_SPS30_N10 = sps30_values.nc_10p0-sps30_values.nc_4p0;
-				last_value_SPS30_TS = sps30_values.tps;
+				}*/
+				last_value_SPS30_P0 = mass_concen[0];
+				last_value_SPS30_P10 = mass_concen[3];
+				last_value_SPS30_P2 = mass_concen[1];
+				last_value_SPS30_P4 = mass_concen[2];
+				last_value_SPS30_N05 = num_concen[0];
+				last_value_SPS30_N1 = num_concen[1]-num_concen[0];
+				last_value_SPS30_N25 = num_concen[2]-num_concen[1];
+				last_value_SPS30_N4 = num_concen[3]-num_concen[2];
+				last_value_SPS30_N10 = num_concen[4]-num_concen[3];
+				last_value_SPS30_TS = num_concen[5];
 
 				/*last_value_SPS30_P0 = ExpSmoothVal(sps30_values.mc_1p0,last_value_SPS30_P0,-1.0);
 				last_value_SPS30_P10 = ExpSmoothVal(sps30_values.mc_10p0,last_value_SPS30_P10,-1.0);
@@ -4317,7 +4327,7 @@ void loop(void) {
 				value_SPS30_N10 += sps30_values.nc_10p0;
 				value_SPS30_TS += sps30_values.tps;
 				++SPS30_measurement_count;*/
-				}
+				//}
 		//debug_outln_info(F("SDS30: measurement done"));
 			}
 		}

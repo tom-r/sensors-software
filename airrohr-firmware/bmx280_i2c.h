@@ -1,8 +1,8 @@
 /*!
  * @file BMX280_i2c.h
  *
- * Copied from AdaFruit BME280 1.0.10 
- * 
+ * Copied from AdaFruit BME280 1.0.10
+ *
  * These sensors use I2C communicate, 2 or 4 pins are required
  * to interface.
  *

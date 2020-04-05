@@ -239,8 +239,8 @@ int16_t sensirion_i2c_read_cmd(uint8_t address, uint16_t cmd, uint16_t *data_wor
 
 int16_t sensirion_i2c_read_cmd(uint8_t address, uint16_t cmd, uint16_t *data_words, uint16_t num_words) {
   int16_t ret;
-  uint8_t buf[SENSIRION_COMMAND_SIZE];
-  //buf[0]=buf[1]=0;
+  uint8_t buf[SENSIRION_COMMAND_SIZE]={'\0','\0'};
+
   sensirion_fill_cmd_send_buf(buf, cmd, NULL, 0);
   ret = sensirion_i2c_write(address, buf, SENSIRION_COMMAND_SIZE);
   if (ret != STATUS_OK) {
@@ -258,8 +258,8 @@ int8_t sensirion_i2c_read(uint8_t address, uint8_t* data, uint16_t count) {
   Wire.flush();
   // 2 bytes RH, 1 CRC, 2 bytes T, 1 CRC
   Wire.requestFrom(address, (uint8_t)count);
-   do{
-    delay (10);
+  do{
+    delay (2); //org:10
   }
   while(!Wire.available());
 
@@ -273,6 +273,7 @@ int8_t sensirion_i2c_read(uint8_t address, uint8_t* data, uint16_t count) {
     }
   }
   memcpy(data, readData, count);//TR
+
   return STATUS_OK;
 }
 

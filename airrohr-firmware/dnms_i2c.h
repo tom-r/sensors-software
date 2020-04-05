@@ -74,7 +74,7 @@ struct dnms_measurements {
 
 /**
    dnms_reset() - reset the dnms system
-   
+
    Return:  0 on success, an error code otherwise
 */
 int16_t dnms_reset();

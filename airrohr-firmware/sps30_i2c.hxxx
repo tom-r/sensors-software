@@ -53,7 +53,7 @@
 #define CRC8_POLYNOMIAL             0x31
 #define CRC8_INIT                   0xFF
 #define CRC8_LEN                    1
-#define SENSIRION_MAX_BUFFER_WORDS  32
+#define SENSIRION_MAX_BUFFER_WORDS  128
 #define SPS_IS_ERR_STATE(err_code) (((err_code) | 0xff) == 0x1ff)
 
 #define SPS_CMD_START_MEASUREMENT       0x0010
@@ -66,9 +66,9 @@
 #define SPS_CMD_GET_SERIAL              0xd033
 #define SPS_CMD_RESET                   0xd304
 #define SPS_CMD_DELAY_USEC              10000
-#define SPS_WRITE_DELAY_US              7350
+//#define SPS_WRITE_DELAY_US              7350
+#define SPS_WRITE_DELAY_US              15000
 #define SPS_CMD_START_MANUAL_FAN_CLEANING 0x5607
-//#define SPS30_I2C_ADDRESS 0x69
 
 #define be16_to_cpu(s) (((uint16_t)(s) << 8) | (0xff & ((uint16_t)(s)) >> 8))
 #define be32_to_cpu(s) (((uint32_t)be16_to_cpu(s) << 16) | (0xffff & (be16_to_cpu((s) >> 16))))

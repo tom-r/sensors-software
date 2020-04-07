@@ -261,6 +261,8 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define LOCAL_ALTITUDE "0.0"
 #define PRESS_CORRECTION "0.0"
 #define HUMIDITY_CORRECTION "0.0"
+#define ALPHASDS "0.1"
+
 // GPS, preferred Neo-6M
 #define GPS_READ 0
 #define GPS_API_PIN 9

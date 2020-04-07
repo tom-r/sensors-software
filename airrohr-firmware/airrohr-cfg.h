@@ -48,6 +48,7 @@ enum ConfigShapeId {
 	Config_temp_correction,
 	Config_press_correction,
 	Config_humidity_correction,
+	Config_alphaSDS,
 	Config_gps_read,
 	Config_send2dusti,
 	Config_ssl_dusti,
@@ -117,6 +118,7 @@ const char CFG_KEY_DNMS_CORRECTION[] PROGMEM = "dnms_correction";
 const char CFG_KEY_TEMP_CORRECTION[] PROGMEM = "temp_correction";
 const char CFG_KEY_PRESS_CORRECTION[] PROGMEM = "press_correction";
 const char CFG_KEY_HUMIDITY_CORRECTION[] PROGMEM = "humidity_correction";
+const char CFG_KEY_ALPHASDS[] PROGMEM = "alphaSDS";
 const char CFG_KEY_GPS_READ[] PROGMEM = "gps_read";
 const char CFG_KEY_SEND2DUSTI[] PROGMEM = "send2dusti";
 const char CFG_KEY_SSL_DUSTI[] PROGMEM = "ssl_dusti";
@@ -186,6 +188,7 @@ static constexpr ConfigShapeEntry configShape[] PROGMEM = {
 	{ Config_Type_String, sizeof(cfg::temp_correction)-1, FPSTR(CFG_KEY_TEMP_CORRECTION), cfg::temp_correction },
 	{ Config_Type_String, sizeof(cfg::press_correction)-1, FPSTR(CFG_KEY_PRESS_CORRECTION), cfg::press_correction },
 	{ Config_Type_String, sizeof(cfg::humidity_correction)-1, FPSTR(CFG_KEY_HUMIDITY_CORRECTION), cfg::humidity_correction },
+	{ Config_Type_String, sizeof(cfg::alphaSDS)-1, FPSTR(CFG_KEY_ALPHASDS), cfg::alphaSDS },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_GPS_READ), &cfg::gps_read },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_SEND2DUSTI), &cfg::send2dusti },
 	{ Config_Type_Bool, 0, FPSTR(CFG_KEY_SSL_DUSTI), &cfg::ssl_dusti },

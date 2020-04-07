@@ -25,6 +25,7 @@ String		dnms_correction
 String		temp_correction
 String		press_correction
 String		humidity_correction
+String      alphaSDS
 Bool		gps_read
 Bool		send2dusti
 Bool		ssl_dusti

@@ -2525,8 +2525,8 @@ static void fetchSensorSDS(String& s) {
 					sds_pm25_sum += pm25_serial;
 					UPDATE_MIN_MAX(sds_pm10_min, sds_pm10_max, pm10_serial);
 					UPDATE_MIN_MAX(sds_pm25_min, sds_pm25_max, pm25_serial);
-					debug_outln_verbose(F("PM10 (sec.) : "), String(pm10_serial / 10.0f));
-					debug_outln_verbose(F("PM2.5 (sec.): "), String(pm25_serial / 10.0f));
+					debug_outln_verbose(F("SDS011 PM10 (sec.) : "), String(pm10_serial / 10.0f));
+					debug_outln_verbose(F("SDS011 PM2.5 (sec.): "), String(pm25_serial / 10.0f));
 					sds_val_count++;
 				}
 			}

@@ -97,8 +97,6 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 
 //includes common to ESP8266 and ESP32 (especially external libraries)
 #include "./oledfont.h"				// avoids including the default Arial font, needs to be included before SSD1306.h
-#include "./SH1106Wire.h"
-#include "./SSD1306Wire.h"
 #include <SSD1306.h>
 #include <SH1106.h>
 #include <LiquidCrystal_I2C.h>
@@ -121,6 +119,7 @@ String SOFTWARE_VERSION(SOFTWARE_VERSION_STR);
 #include "defines.h"
 #include "ext_def.h"
 #include "html-content.h"
+#include <math.h>
 
 /******************************************************************
  * The variables inside the cfg namespace are persistent          *
@@ -189,7 +188,6 @@ namespace cfg {
 	// (in)active displays
 	bool has_display = HAS_DISPLAY;											// OLED with SSD1306 and I2C
 	bool has_sh1106 = HAS_SH1106;
-	bool has_sh1106_grafik = HAS_SH1106_GRAFIK;
 	bool has_flipped_display = HAS_FLIPPED_DISPLAY;
 	bool has_lcd1602 = HAS_LCD1602;
 	bool has_lcd1602_27 = HAS_LCD1602_27;
@@ -254,12 +252,6 @@ bool sht3x_init_failed = false;
 bool dnms_init_failed = false;
 bool gps_init_failed = false;
 bool airrohr_selftest_failed = false;
-//TR Grafik Arrays für SH1106
-#define ARRSIZE_X 110
-#define ARRSIZE_Y 54
-uint16_t pm25_arr[ARRSIZE_X];
-uint16_t pm10_arr[ARRSIZE_X];
-uint16_t max_pm=0;
 
 #if defined(ESP8266)
 ESP8266WebServer server(80);
@@ -381,13 +373,13 @@ float last_value_HTU21D_H = -1.0;
 float last_value_SHT3X_T = -128.0;
 float last_value_SHT3X_H = -1.0;
 
-uint32_t sds_pm10_sum = 0;
-uint32_t sds_pm25_sum = 0;
+//uint32_t sds_pm10_sum = 0;
+//uint32_t sds_pm25_sum = 0;
 uint32_t sds_val_count = 0;
-uint32_t sds_pm10_max = 0;
-uint32_t sds_pm10_min = 20000;
-uint32_t sds_pm25_max = 0;
-uint32_t sds_pm25_min = 20000;
+//uint32_t sds_pm10_max = 0;
+//uint32_t sds_pm10_min = 20000;
+//uint32_t sds_pm25_max = 0;
+//uint32_t sds_pm25_min = 20000;
 
 int pms_pm1_sum = 0;
 int pms_pm10_sum = 0;
@@ -408,10 +400,10 @@ int hpm_pm10_min = 20000;
 int hpm_pm25_max = 0;
 int hpm_pm25_min = 20000;
 
-double last_value_SPS30_P0 = -1.0;
-double last_value_SPS30_P10 = -1.0;
-double last_value_SPS30_P2 = -1.0;
-double last_value_SPS30_P4 = -1.0;
+float last_value_SPS30_P0 = -1.0;
+float last_value_SPS30_P10 = -1.0;
+float last_value_SPS30_P2 = -1.0;
+float last_value_SPS30_P4 = -1.0;
 float last_value_SPS30_N05 = -1.0;
 float last_value_SPS30_N1 = -1.0;
 float last_value_SPS30_N25 = -1.0;
@@ -440,8 +432,8 @@ bool sps30_init_failed = false;
 
 float last_value_PPD_P1 = -1.0;
 float last_value_PPD_P2 = -1.0;
-float last_value_SDS_P1 = -1.0;
-float last_value_SDS_P2 = -1.0;
+float last_value_SDS_P1 = -1.0f;
+float last_value_SDS_P2 = -1.0f;
 float last_value_PMS_P0 = -1.0;
 float last_value_PMS_P1 = -1.0;
 float last_value_PMS_P2 = -1.0;
@@ -539,9 +531,7 @@ static String SDS_version_date() {
 		debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(DBG_TXT_SDS011_VERSION_DATE));
 		is_SDS_running = SDS_cmd(PmSensorCmd::Start);
 		delay(250);
-#if defined(ESP8266)
 		serialSDS.perform_work();
-#endif
 		serialSDS.flush();
 		// Query Version/Date
 		SDS_rawcmd(0x07, 0x00, 0x00);
@@ -1052,11 +1042,7 @@ static void webserver_config_send_body_get(String& page_content) {
 	page_content = tmpl(FPSTR(WEB_DIV_PANEL), String(2));
 
 	add_form_checkbox(Config_has_display, FPSTR(INTL_DISPLAY));
-//	add_form_checkbox(Config_has_sh1106, FPSTR(INTL_SH1106));
-	page_content += form_checkbox(Config_has_sh1106, FPSTR(INTL_SH1106), false);
-	page_content += FPSTR(WEB_NBSP_NBSP_BRACE);
- 	page_content += form_checkbox(Config_has_sh1106_grafik, FPSTR("PM2.5/PM10 Grafik"), false);
- 	page_content += FPSTR(WEB_BRACE_BR);
+	add_form_checkbox(Config_has_sh1106, FPSTR(INTL_SH1106));
 	add_form_checkbox(Config_has_flipped_display, FPSTR(INTL_FLIP_DISPLAY));
 	add_form_checkbox(Config_has_lcd1602_27, FPSTR(INTL_LCD1602_27));
 	add_form_checkbox(Config_has_lcd1602, FPSTR(INTL_LCD1602_3F));
@@ -1120,6 +1106,7 @@ static void webserver_config_send_body_get(String& page_content) {
 	add_form_input(page_content, Config_press_correction, FPSTR(INTL_PRESS_CORRECTION), LEN_PRESS_CORRECTION-1);
 	add_form_input(page_content, Config_humidity_correction, FPSTR(INTL_HUMIDITY_CORRECTION), LEN_HUMIDITY_CORRECTION-1);
 	add_form_input(page_content, Config_alphaSDS, FPSTR("smoothing const. for SDS011 [>0..1] 1=no smoothing"), LEN_ALPHASDS-1);
+
 //TR : Standorthöhe für Höhenkorrektur
     add_form_input(page_content, Config_local_altitude, FPSTR(INTL_LOC_ALTI), LEN_LOC_ALTI_CORRECTION-1);
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
@@ -2497,6 +2484,7 @@ static void fetchSensorDS18B20(String& s) {
 /*****************************************************************
  * read SDS011 sensor values                                     *
  *****************************************************************/
+/*Original mit ExpSmooth
 static void fetchSensorSDS(String& s) {
 
 	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_SDS011));
@@ -2528,9 +2516,6 @@ static void fetchSensorSDS(String& s) {
 					UPDATE_MIN_MAX(sds_pm25_min, sds_pm25_max, pm25_serial);
 					debug_outln_verbose(F("raw SDS011 PM10 (sec.) : "), String(pm10_serial / 10.0f));
 					debug_outln_verbose(F("raw SDS011 PM2.5 (sec.): "), String(pm25_serial / 10.0f));
-					//last_value_SDS_P1 = ExpSmoothVal(alphaSDS,float(float(pm10_serial) / 10.0f),last_value_SDS_P1,-1.0);
-					//last_value_SDS_P2 = ExpSmoothVal(alphaSDS,float(float(pm25_serial) / 10.0f),last_value_SDS_P2,-1.0);
-
 					sds_val_count++;
 				}
 			}
@@ -2545,14 +2530,15 @@ static void fetchSensorSDS(String& s) {
 			sds_val_count -= 2;
 		}
 		if (sds_val_count > 0) {
-//			last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
-//			last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
+			//last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
+			//last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
 			last_value_SDS_P1 = ExpSmoothVal(alphaSDS,float(float(sds_pm10_sum) / (sds_val_count * 10.0f)),last_value_SDS_P1,-1.0);
 			last_value_SDS_P2 = ExpSmoothVal(alphaSDS,float(float(sds_pm25_sum) / (sds_val_count * 10.0f)),last_value_SDS_P2,-1.0);
 			add_Value2Json(s, F("SDS_P1"), F("PM10:  "), last_value_SDS_P1);
 			add_Value2Json(s, F("SDS_P2"), F("PM2.5: "), last_value_SDS_P2);
 			debug_outln_verbose(F("smoothed SDS011 PM10 (sec.) : "), String(last_value_SDS_P1));
 			debug_outln_verbose(F("smoothed SDS011 PM2.5 (sec.): "), String(last_value_SDS_P2));
+
 			debug_outln_info(FPSTR(DBG_TXT_SEP));
 			if (sds_val_count < 3) {
 				SDS_error_count++;
@@ -2568,6 +2554,90 @@ static void fetchSensorSDS(String& s) {
 		sds_pm10_min = 20000;
 		sds_pm25_max = 0;
 		sds_pm25_min = 20000;
+		if ((cfg::sending_intervall_ms > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
+
+			if (is_SDS_running) {
+				is_SDS_running = SDS_cmd(PmSensorCmd::Stop);
+			}
+		}
+	}
+
+	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_SDS011));
+}*/
+//neu mit direktem ExpSmooth
+static void fetchSensorSDS(String& s) {
+
+	debug_outln_verbose(FPSTR(DBG_TXT_START_READING), FPSTR(SENSORS_SDS011));
+
+	if (cfg::sending_intervall_ms > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS) &&
+		msSince(starttime) < (cfg::sending_intervall_ms - (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
+		if (is_SDS_running) {
+			is_SDS_running = SDS_cmd(PmSensorCmd::Stop);
+		}
+	} else {
+		if (! is_SDS_running) {
+			is_SDS_running = SDS_cmd(PmSensorCmd::Start);
+		}
+
+		const uint8_t constexpr header_measurement[2] = { 0xAA, 0xC0 };
+
+		while (serialSDS.available() >= 10 &&
+					serialSDS.find(header_measurement, sizeof(header_measurement))) {
+			uint8_t data[8];
+			yield_for_serial_buffer(sizeof(data));
+			unsigned r = serialSDS.readBytes(data, sizeof(data));
+			if (r == sizeof(data) && SDS_checksum_valid(data)) {
+				uint32_t pm25_serial = data[0] | (data[1] << 8);
+				uint32_t pm10_serial = data[2] | (data[3] << 8);
+				if (msSince(starttime) > (cfg::sending_intervall_ms - READINGTIME_SDS_MS)) {
+					//sds_pm10_sum += pm10_serial;
+					//sds_pm25_sum += pm25_serial;
+					//UPDATE_MIN_MAX(sds_pm10_min, sds_pm10_max, pm10_serial);
+					//UPDATE_MIN_MAX(sds_pm25_min, sds_pm25_max, pm25_serial);
+					debug_outln_verbose(F("raw SDS011 PM10 (sec.) : "), String(pm10_serial / 10.0f));
+					debug_outln_verbose(F("raw SDS011 PM2.5 (sec.): "), String(pm25_serial / 10.0f));
+					last_value_SDS_P1 = ExpSmoothVal(alphaSDS,float(float(pm10_serial) / 10.0f),last_value_SDS_P1,-1.0f);
+					last_value_SDS_P2 = ExpSmoothVal(alphaSDS,float(float(pm25_serial) / 10.0f),last_value_SDS_P2,-1.0f);
+
+
+					sds_val_count++;
+				}
+			}
+		}
+	}
+	if (send_now) {
+		//last_value_SDS_P1 = -1;
+		//last_value_SDS_P2 = -1;
+		if (sds_val_count > 2) {
+		//	sds_pm10_sum = sds_pm10_sum - sds_pm10_min - sds_pm10_max;
+		//	sds_pm25_sum = sds_pm25_sum - sds_pm25_min - sds_pm25_max;
+			sds_val_count -= 2;
+		}
+		if (sds_val_count > 0) {
+			//last_value_SDS_P1 = float(sds_pm10_sum) / (sds_val_count * 10.0f);
+			//last_value_SDS_P2 = float(sds_pm25_sum) / (sds_val_count * 10.0f);
+			//last_value_SDS_P1 = ExpSmoothVal(alphaSDS,float(float(pm10_serial) / 10.0f),last_value_SDS_P1,-1.0);
+			//last_value_SDS_P2 = ExpSmoothVal(alphaSDS,float(float(pm25_serial) / 10.0f),last_value_SDS_P2,-1.0);
+			add_Value2Json(s, F("SDS_P1"), F("PM10:  "), last_value_SDS_P1);
+			add_Value2Json(s, F("SDS_P2"), F("PM2.5: "), last_value_SDS_P2);
+			debug_outln_verbose(F("smoothed SDS011 PM10 (sec.) : "), String(last_value_SDS_P1));
+			debug_outln_verbose(F("smoothed SDS011 PM2.5 (sec.): "), String(last_value_SDS_P2));
+
+			debug_outln_info(FPSTR(DBG_TXT_SEP));
+			if (sds_val_count < 3) {
+				SDS_error_count++;
+			}
+		}
+		else {
+			SDS_error_count++;
+		}
+		//sds_pm10_sum = 0;
+		//sds_pm25_sum = 0;
+		sds_val_count = 0;
+		//sds_pm10_max = 0;
+		//sds_pm10_min = 20000;
+		//sds_pm25_max = 0;
+		//sds_pm25_min = 20000;
 		if ((cfg::sending_intervall_ms > (WARMUPTIME_SDS_MS + READINGTIME_SDS_MS))) {
 
 			if (is_SDS_running) {
@@ -2931,7 +3001,7 @@ static void fetchSensorSPS30(String& s) {
 	/*last_value_SPS30_P0 = value_SPS30_P0 / SPS30_measurement_count;
 	last_value_SPS30_P2 = value_SPS30_P2 / SPS30_measurement_count;
 	last_value_SPS30_P4 = value_SPS30_P4 / SPS30_measurement_count;
-	last_value_SPS30_P1 = value_SPS30_P1 / SPS30_measurement_count;
+	last_value_SPS30_P10 = value_SPS30_P1 / SPS30_measurement_count;
 	last_value_SPS30_N05 = value_SPS30_N05 / SPS30_measurement_count;
 	last_value_SPS30_N1 = value_SPS30_N1 / SPS30_measurement_count;
 	last_value_SPS30_N25 = value_SPS30_N25 / SPS30_measurement_count;
@@ -2953,8 +3023,13 @@ static void fetchSensorSPS30(String& s) {
 	debug_outln_info(F("SPS30 read counter: "), String(SPS30_read_counter));
 	debug_outln_info(F("SPS30 read error counter: "), String(SPS30_read_error_counter));
 
+//	SPS30_measurement_count = 0;
 	SPS30_read_counter = 0;
 	SPS30_read_error_counter = 0;
+/*	value_SPS30_P0 = value_SPS30_P1 = value_SPS30_P2 = value_SPS30_P4 = 0.0;
+	value_SPS30_N05 = value_SPS30_N1 = value_SPS30_N25 = value_SPS30_N10 = value_SPS30_N4 = 0.0;
+	value_SPS30_TS = 0.0;
+*/
 	debug_outln_info(FPSTR(DBG_TXT_SEP));
 	debug_outln_verbose(FPSTR(DBG_TXT_END_READING), FPSTR(SENSORS_SPS30));
 
@@ -3074,7 +3149,7 @@ static void fetchSensorGPS(String& s) {
 /*****************************************************************
  * OTAUpdate                                                     *
  *****************************************************************/
-#if defined(ESP8266)
+
 static bool fwDownloadStream(WiFiClientSecure& client, const String& url, Stream* ostream) {
 
 	HTTPClient http;
@@ -3142,7 +3217,7 @@ static bool fwDownloadStreamFile(WiFiClientSecure& client, const String& url, co
 	SPIFFS.remove(fname_new);
 	return false;
 }
-#endif
+
 static void twoStageOTAUpdate() {
 
 	if (!cfg::auto_update) return;
@@ -3251,21 +3326,7 @@ static String displayGenerateFooter(unsigned int screen_count) {
 	}
 	return display_footer;
 }
-static void add_PM_to_graphics_array(float pm25,float pm10){
-	uint16_t ipm25=(uint16_t)((pm25+0.05)*10);
-	uint16_t ipm10=(uint16_t)((pm10+0.05)*10);
-	max_pm=0;
-    for(int i=1;i<ARRSIZE_X;i++){ //shift
-		pm25_arr[i-1]=pm25_arr[i];
-		pm10_arr[i-1]=pm10_arr[i];
-		max_pm=max(max_pm,pm25_arr[i-1]);//max Wert der Kurven merken für Skalierung
-		max_pm=max(max_pm,pm10_arr[i-1]);
-	}
-	pm25_arr[ARRSIZE_X-1]=ipm25;
-	pm10_arr[ARRSIZE_X-1]=ipm10;
-	max_pm=max(max_pm,ipm25);
-	max_pm=max(max_pm,ipm10);
-}
+
 /*****************************************************************
  * display values                                                *
  *****************************************************************/
@@ -3298,7 +3359,7 @@ static void display_values() {
 	uint8_t screen_count = 0;
 	uint8_t screens[8];
 	int line_count = 0;
-	//debug_outln_info(F("output values to display..."));
+	debug_outln_info(F("output values to display..."));
 	if (cfg::ppd_read) {
 		pm10_value = last_value_PPD_P1;
 		pm10_sensor = FPSTR(SENSORS_PPD42NS);
@@ -3495,37 +3556,14 @@ static void display_values() {
 		if (cfg::has_sh1106) {
 			display_sh1106.clear();
 			display_sh1106.displayOn();
-			if (!cfg::has_sh1106_grafik) {
-				display_sh1106.setTextAlignment(TEXT_ALIGN_CENTER);
-				display_sh1106.drawString(64, 1, display_header);
-				display_sh1106.setTextAlignment(TEXT_ALIGN_LEFT);
-				display_sh1106.drawString(0, 16, display_lines[0]);
-				display_sh1106.drawString(0, 28, display_lines[1]);
-				display_sh1106.drawString(0, 40, display_lines[2]);
-				display_sh1106.setTextAlignment(TEXT_ALIGN_CENTER);
-				display_sh1106.drawString(64, 52, displayGenerateFooter(screen_count));
-			}
-			else {
-				//uint16_t dy=(max_pm+10)-((max_pm+10)%10);//aufrunden auf nächsthöheren vollen Wert
-				uint16_t dy= ((uint16_t)(max_pm/10)+1)*10;
-				String footer="PM2.5:"+ check_display_value(pm25_value, -1, 2, 6)+ " PM10:"+ check_display_value(pm10_value, -1, 2, 6);
-				display_sh1106.setTextAlignment(TEXT_ALIGN_LEFT);
-				display_sh1106.drawString(ARRSIZE_X,0, String(dy/10));
-				display_sh1106.drawString(ARRSIZE_X+4, ARRSIZE_Y-6, F(" 0"));
-				display_sh1106.drawHorizontalLine(0,0,ARRSIZE_X);
-				display_sh1106.drawHorizontalLine(0,ARRSIZE_Y,ARRSIZE_X);
-				display_sh1106.setTextAlignment(TEXT_ALIGN_CENTER);
-				display_sh1106.drawString(64,ARRSIZE_Y, footer);
-
-				for(int16_t i=0;i<ARRSIZE_X;i++){
-					display_sh1106.setPixel(i,(int16_t)(ARRSIZE_Y-(ARRSIZE_Y/(float)dy*pm25_arr[i])));
-					display_sh1106.setPixel(i,(int16_t)(ARRSIZE_Y-(ARRSIZE_Y/(float)dy*pm10_arr[i])));
-				}
-				//for(int16_t i=1;i<ARRSIZE_X;i++){ //zu rechenintensiv ...
-					//display_sh1106.drawLine(i-1,(int16_t)(ARRSIZE_Y-(ARRSIZE_Y/(float)dy*pm25_arr[i-1])),i,(int16_t)(ARRSIZE_Y-(ARRSIZE_Y/(float)dy*pm25_arr[i])));
-					//display_sh1106.drawLine(i-1,(int16_t)(ARRSIZE_Y-(ARRSIZE_Y/(float)dy*pm10_arr[i-1])),i,(int16_t)(ARRSIZE_Y-(ARRSIZE_Y/(float)dy*pm10_arr[i])));
-				//}
-			}
+			display_sh1106.setTextAlignment(TEXT_ALIGN_CENTER);
+			display_sh1106.drawString(64, 1, display_header);
+			display_sh1106.setTextAlignment(TEXT_ALIGN_LEFT);
+			display_sh1106.drawString(0, 16, display_lines[0]);
+			display_sh1106.drawString(0, 28, display_lines[1]);
+			display_sh1106.drawString(0, 40, display_lines[2]);
+			display_sh1106.setTextAlignment(TEXT_ALIGN_CENTER);
+			display_sh1106.drawString(64, 52, displayGenerateFooter(screen_count));
 			display_sh1106.display();
 		}
 		if (lcd_2004) {
@@ -3537,16 +3575,12 @@ static void display_values() {
 			lcd_2004->clear();
 			lcd_2004->setCursor(0, 0);
 			lcd_2004->print(display_header);
-			Debug.println(display_header);
 			lcd_2004->setCursor(0, 1);
 			lcd_2004->print(display_lines[0]);
-			Debug.println(display_lines[0]);
 			lcd_2004->setCursor(0, 2);
 			lcd_2004->print(display_lines[1]);
-			Debug.println(display_lines[1]);
 			lcd_2004->setCursor(0, 3);
 			lcd_2004->print(display_lines[2]);
-			Debug.println(display_lines[2]);
 		}
 	}
 
@@ -3618,10 +3652,6 @@ static void init_display() {
         }
     }
     if (cfg::has_sh1106) {
-		for(int8_t i=0; i<ARRSIZE_X;i++){
-			pm25_arr[i]=0;
-			pm10_arr[i]=0;
-		}
         display_sh1106.init();
         if (cfg::has_flipped_display) {
             display_sh1106.flipScreenVertically();
@@ -3676,9 +3706,6 @@ static bool initBMX280(char addr) {
 static void initSPS30() {
 	char serial[SPS_MAX_SERIAL_LEN];
 	debug_out(F("Trying SPS30 sensor on 0x69H "), DEBUG_MIN_INFO);
-//#if defined(ESP8266)
-//  Wire.setClockStretchLimit(20000);
-//#endif
 	sps30_reset();
 	delay(200);
 	if ( sps30_get_serial(serial) != 0 ) {
@@ -3689,13 +3716,6 @@ static void initSPS30() {
 		return;
 	}
 	debug_outln_info(F(" ... found, Serial-No.: "), String(serial));
-	uint8_t major=0;
-	uint8_t minor=0;
-	if(sps30_read_firmware_version(&major, &minor) == 0){
-		debug_outln_info(F("Firmware-Version: "),String(major)+"."+String(minor));
-	}
-
-
 	if (sps30_set_fan_auto_cleaning_interval(SPS30_AUTO_CLEANING_INTERVAL) != 0) {
 		debug_outln_error(F("setting of Auto Cleaning Intervall SPS30 failed!"));
 		sps30_init_failed = true;
@@ -3740,7 +3760,7 @@ static void powerOnTestSensors() {
 
 	if (cfg::sds_read) {
 		alphaSDS=readCorrectionOffset(cfg::alphaSDS);
-		if(alphaSDS <=0 || alphaSDS >1.0) alphaSDS=0.15;
+		if(alphaSDS <=0.0f || alphaSDS >1.0f) alphaSDS=0.15f;
 		debug_outln_info(F("Read SDS...: "), SDS_version_date());
 		SDS_cmd(PmSensorCmd::ContinuousMode);
 		delay(100);
@@ -3873,11 +3893,10 @@ static void logEnabledDisplays() {
 }
 
 static void setupNetworkTime() {
-#if defined(ESP8266)
 	// server name ptrs must be persisted after the call to configTime because internally
 	// the pointers are stored see implementation of lwip sntp_setservername()
 	static char ntpServer1[18], ntpServer2[18];
-//#if defined(ESP8266)
+#if defined(ESP8266)
 	settimeofday_cb([]() {
 		if (!sntp_time_set) {
 			time_t now = time(nullptr);
@@ -3887,82 +3906,12 @@ static void setupNetworkTime() {
 		}
 		sntp_time_set++;
 	});
-//#endif
+#endif
 	strcpy_P(ntpServer1, NTP_SERVER_1);
 	strcpy_P(ntpServer2, NTP_SERVER_2);
 	configTime(0, 0, ntpServer1, ntpServer2);
-#endif
-#if defined(ESP32)
-	int retryCount = 0;
-	debug_outln(F("Setting time using SNTP"), DEBUG_MIN_INFO);
-	time_t now = time(nullptr);
-	debug_outln(String(ctime(&now)), DEBUG_MIN_INFO);
-	debug_outln(F("NTP.org:"), DEBUG_MIN_INFO);
-	configTime(8 * 3600, 0, "pool.ntp.org");
-	while (retryCount++ < 20) {
-		// later than 2000/01/01:00:00:00
-		if (sntp_time_is_set) {
-			now = time(nullptr);
-			debug_outln(String(ctime(&now)), DEBUG_MIN_INFO);
-			return; //true;
-		}
-		delay(500);
-		debug_out(F("."), DEBUG_MIN_INFO);
-	}
-	debug_outln(F("\nrouter/gateway:"), DEBUG_MIN_INFO);
-	retryCount = 0;
-	configTime(0, 0, WiFi.gatewayIP().toString().c_str());
-	while (retryCount++ < 20) {
-		// later than 2000/01/01:00:00:00
-		if (sntp_time_is_set) {
-			now = time(nullptr);
-			debug_outln(String(ctime(&now)), DEBUG_MIN_INFO);
-			return;// true;
-		}
-		delay(500);
-		debug_out(F("."), DEBUG_MIN_INFO);
-	}
-#endif
 }
 
-#if defined(ESP32)
-/*static void time_is_set (void) {
-	sntp_time_is_set = true;
-}
-*/
-/*static bool acquireNetworkTime() {
-	int retryCount = 0;
-	debug_outln(F("Setting time using SNTP"), DEBUG_MIN_INFO);
-	time_t now = time(nullptr);
-	debug_outln(String(ctime(&now)), DEBUG_MIN_INFO);
-	debug_outln(F("NTP.org:"), DEBUG_MIN_INFO);
-	configTime(8 * 3600, 0, "pool.ntp.org");
-	while (retryCount++ < 20) {
-		// later than 2000/01/01:00:00:00
-		if (sntp_time_is_set) {
-			now = time(nullptr);
-			debug_outln(String(ctime(&now)), DEBUG_MIN_INFO);
-			return true;
-		}
-		delay(500);
-		debug_out(F("."), DEBUG_MIN_INFO);
-	}
-	debug_outln(F("\nrouter/gateway:"), DEBUG_MIN_INFO);
-	retryCount = 0;
-	configTime(0, 0, WiFi.gatewayIP().toString().c_str());
-	while (retryCount++ < 20) {
-		// later than 2000/01/01:00:00:00
-		if (sntp_time_is_set) {
-			now = time(nullptr);
-			debug_outln(String(ctime(&now)), DEBUG_MIN_INFO);
-			return true;
-		}
-		delay(500);
-		debug_out(F("."), DEBUG_MIN_INFO);
-	}
-	return false;
-}*/
-#endif
 static unsigned long sendDataToOptionalApis( String &data) {
 	unsigned long sum_send_time = 0;
 // hier jetzt den auf msl korrigierten Luftdruck als JSON String an data2 anhängen, String abschließen und senden
@@ -4162,22 +4111,15 @@ void setup(void) {
 	WiFi.persistent(false);
 
 	debug_outln_info(F("airRohr: " SOFTWARE_VERSION_STR "/"), String(CURRENT_LANG));
-#if defined(ESP8266) //TR
 	if ((airrohr_selftest_failed = !ESP.checkFlashConfig() /* after 2.7.0 update: || !ESP.checkFlashCRC() */)) {
 		debug_outln_error(F("ERROR: SELF TEST FAILED!"));
 		SOFTWARE_VERSION += F("-STF");
 	}
-#endif
 
 	init_config();
 	init_display();
 	connectWifi();
-//#if defined(ESP8266)
 	setupNetworkTime();
-//#endif
-//#if defined(ESP32)
-//	acquireNetworkTime();
-//#endif
 	setup_webserver();
 	createLoggerConfigs();
 	debug_outln_info(F("\nChipId: "), esp_chipid);
@@ -4213,21 +4155,13 @@ static float ExpSmoothVal(float alpha,float newval,float oldSmoothedValue,float 
 
     return (alpha*newval + (1.0f - alpha)*oldSmoothedValue);
 }
-void print_aligned(double val, signed char width, unsigned char prec)
-{
-  char out[15];
-
-  dtostrf(val, width, prec, out);
-  Debug.print(out);
-  Debug.print(F("\t  "));
-}
 /*****************************************************************
  * And action                                                    *
  *****************************************************************/
 void loop(void) {
 	String result_PPD, result_SDS, result_PMS, result_HPM;
 	String result_GPS, result_DNMS;
-    //static bool header = true;
+
 	unsigned sum_send_time = 0;
 
 	act_micro = micros();
@@ -4246,9 +4180,8 @@ void loop(void) {
 
 	sample_count++;
 
-#if defined(ESP8266)
 	ESP.wdtFeed();
-#endif
+
 	if (last_micro != 0) {
 		unsigned long diff_micro = act_micro - last_micro;
 		UPDATE_MIN_MAX(min_micro, max_micro, diff_micro);
@@ -4257,26 +4190,19 @@ void loop(void) {
 //goal is to measure every 10s(SPS30_WAITING_AFTER_LAST_READ=15000)
 	if (cfg::sps30_read && ( !sps30_init_failed)) {
 		if ((msSince(starttime) - SPS30_read_timer) > SPS30_WAITING_AFTER_LAST_READ) {
-			int16_t ret_SPS30=0;
-			uint16_t data_ready=0;
+			int16_t ret_SPS30;
 			struct sps30_measurement sps30_values;
-			sps30_values.mc_1p0=sps30_values.mc_2p5 = sps30_values.mc_4p0= sps30_values.mc_10p0=-1.0F;
-   			sps30_values.nc_0p5= sps30_values.nc_1p0 = sps30_values.nc_2p5= sps30_values.nc_4p0= sps30_values.nc_10p0= sps30_values.tps=-1.0F;
 			SPS30_read_timer = msSince(starttime);
-			ret_SPS30=sps30_read_data_ready(&data_ready);
-			if(data_ready) {
-		    	//debug_outln_info(F("SDS30: reading measurement ..."));
-				ret_SPS30 = sps30_read_measurement(&sps30_values);//Messwerte holen
-				//delay(200);
-				//++SPS30_read_counter;
-				if (ret_SPS30 < 0) {
-					debug_outln_info(F("SPS30 error reading measurement"));
+		    //debug_outln_info(F("SDS30: reading measurement ..."));
+			ret_SPS30 = sps30_read_measurement(&sps30_values);//Messwerte holen
+			//++SPS30_read_counter;
+			if (ret_SPS30 < 0) {
+				debug_outln_info(F("SPS30 error reading measurement"));
+				SPS30_read_error_counter++;
+			} else {
+				if (SPS_IS_ERR_STATE(ret_SPS30)) {
+					debug_outln_info(F("SPS30 measurements may not be accurate"));
 					SPS30_read_error_counter++;
-				}
-				else {
-					if (SPS_IS_ERR_STATE(ret_SPS30)) {
-						debug_outln_info(F("SPS30 measurements may not be accurate"));
-						SPS30_read_error_counter++;
 				}
 				last_value_SPS30_P0 = sps30_values.mc_1p0;
 				last_value_SPS30_P10 = sps30_values.mc_10p0;
@@ -4288,68 +4214,47 @@ void loop(void) {
 				last_value_SPS30_N4 = sps30_values.nc_4p0-sps30_values.nc_2p5;
 				last_value_SPS30_N10 = sps30_values.nc_10p0-sps30_values.nc_4p0;
 				last_value_SPS30_TS = sps30_values.tps;
-
-				/*last_value_SPS30_P0 = ExpSmoothVal(sps30_values.mc_1p0,last_value_SPS30_P0,-1.0);
-				last_value_SPS30_P10 = ExpSmoothVal(sps30_values.mc_10p0,last_value_SPS30_P10,-1.0);
-				last_value_SPS30_P2 = ExpSmoothVal(sps30_values.mc_2p5,last_value_SPS30_P2,-1.0);
-				last_value_SPS30_P4 = ExpSmoothVal(sps30_values.mc_4p0,last_value_SPS30_P4,-1.0);
-				last_value_SPS30_N05 = ExpSmoothVal(sps30_values.nc_0p5,last_value_SPS30_N05,-1.0);
-				last_value_SPS30_N1 = ExpSmoothVal(sps30_values.nc_1p0-sps30_values.nc_0p5,last_value_SPS30_N1,-1.0);
-				last_value_SPS30_N25 = ExpSmoothVal(sps30_values.nc_2p5-sps30_values.nc_1p0,last_value_SPS30_N25,-1.0);
-				last_value_SPS30_N4 = ExpSmoothVal(sps30_values.nc_4p0-sps30_values.nc_2p5,last_value_SPS30_N4,-1.0);
-				last_value_SPS30_N10 = ExpSmoothVal(sps30_values.nc_10p0-sps30_values.nc_4p0,last_value_SPS30_N10,-1.0);
-				last_value_SPS30_TS = ExpSmoothVal(sps30_values.tps,last_value_SPS30_TS,-1.0);*/
-				add_PM_to_graphics_array(last_value_SPS30_P2,last_value_SPS30_P10);
-	/* https://github.com/Sensirion/arduino-sps/blob/master/examples/sps30/sps30.ino
-	// since all values include particles smaller than X, if we want to create buckets we
-    // need to subtract the smaller particle count.
-    // This will create buckets (all values in micro meters):
-    // - particles        <= 0,5
-    // - particles > 0.5, <= 1
-    // - particles > 1,   <= 2.5
-    // - particles > 2.5, <= 4
-    // - particles > 4,   <= 10
-
-    Serial.print(m.nc_0p5);
-    Serial.print(" ");
-    Serial.print(m.nc_1p0  - m.nc_0p5);
-    Serial.print(" ");
-    Serial.print(m.nc_2p5  - m.nc_1p0);
-    Serial.print(" ");
-    Serial.print(m.nc_4p0  - m.nc_2p5);
-    Serial.print(" ");
-    Serial.print(m.nc_10p0 - m.nc_4p0);
-    Serial.println();
-
-				*/
- // only print header first time
-  /*if (header) {
-    Debug.println(F("----------------------------Mass -----------------------------"));//    -------------------------------- Number ---------------------------------      -------Partsize --------"));
-    Debug.println(F("                     Concentration [μg/m3]"));//                                                 Concentration [#/cm3]                                           [μm]"));
-    Debug.print(F(" PM1.0             PM2.5           PM4.0           PM10"));//             NC0.5           NC1.0           NC2.5           NC4.0           NC10          Typical"));
-    Debug.println(F(" samples\n"));
-    header = false;
-  }
-
-  print_aligned((double) sps30_values.mc_1p0, 11, 8);
-  print_aligned((double) sps30_values.mc_2p5, 11, 8);
-  print_aligned((double) sps30_values.mc_4p0, 11, 8);
-  print_aligned((double) sps30_values.mc_10p0, 11, 8);
-  Debug.println(F(""));
-  print_aligned((double) sps30_values.nc_1p0-sps30_values.nc_0p5, 11, 8);
-  print_aligned((double) sps30_values.nc_2p5-sps30_values.nc_1p0, 11, 8);
-  print_aligned((double) sps30_values.nc_4p0-sps30_values.nc_2p5, 11, 8);
-  print_aligned((double) sps30_values.nc_10p0-sps30_values.nc_4p0, 11, 8);
-
-  Debug.println(F(""));*/
-  //print_aligned((double) last_value_SPS30_N05, 9, 5);
-  //print_aligned((double) last_value_SPS30_N1, 9, 5);
-  //print_aligned((double) last_value_SPS30_N25, 9, 5);
-  //print_aligned((double) last_value_SPS30_N4, 9, 5);
-  //print_aligned((double) last_value_SPS30_N10, 9, 5);
-  //print_aligned((double) last_value_SPS30_TS, 7, 5);
-
-
+				/*RESERVE_STRING(SMdata, LARGE_STR);
+				SMdata=String(sps30_values.mc_1p0);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_P0);
+				SMdata+= ";";
+				SMdata+=String(sps30_values.mc_10p0);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_P10);
+				SMdata+= ";";
+				SMdata+=String(sps30_values.mc_2p5);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_P2);
+				SMdata+= ";";
+				SMdata+=String(sps30_values.mc_4p0);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_P4);
+				SMdata+= ";";
+				SMdata+=String(sps30_values.nc_0p5);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_N05);
+				SMdata+= ";";
+				SMdata+=String(sps30_values.nc_1p0);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_N1);
+				SMdata+= ";";
+				SMdata+=String(sps30_values.nc_2p5);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_N25);
+				SMdata+= ";";
+				SMdata+=String(sps30_values.nc_4p0);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_N4);
+				SMdata+= ";";
+				SMdata+=String(sps30_values.nc_10p0);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_N10);
+				SMdata+= ";";
+				SMdata+=String(sps30_values.tps);
+				SMdata+= ";";
+				SMdata+=String(last_value_SPS30_TS);
+				debug_outln_info(SMdata);*/
 
 /*
 				value_SPS30_P0 += sps30_values.mc_1p0;
@@ -4363,11 +4268,11 @@ void loop(void) {
 				value_SPS30_N10 += sps30_values.nc_10p0;
 				value_SPS30_TS += sps30_values.tps;
 				++SPS30_measurement_count;*/
-				}
-		//debug_outln_info(F("SDS30: measurement done"));
 			}
+		//debug_outln_info(F("SDS30: measurement done"));
 		}
 	}
+
 	if (cfg::ppd_read) {
 		fetchSensorPPD(result_PPD);
 	}
@@ -4415,23 +4320,19 @@ void loop(void) {
 		else {
 			float pakt=p + readCorrectionOffset(cfg::press_correction);
 			float takt=t + readCorrectionOffset(cfg::temp_correction);
-			//last_value_BMX280_T = ExpSmoothVal(takt,last_value_BMX280_T,-128.0);
-			//last_value_BMX280_P = ExpSmoothVal(pakt,last_value_BMX280_P,-1.0);
 			last_value_BMX280_T = takt;
 			last_value_BMX280_P = pakt;
 			//debug_outln_info(F("BME280 Höhe msl:"),readCorrectionOffset(cfg::local_altitude));
 			if( readCorrectionOffset(cfg::local_altitude) >0.0 ){
 				float pkorr=convert_pressure2msl(pakt,takt,readCorrectionOffset(cfg::local_altitude));
-				//last_value_BMX280_P_NN=ExpSmoothVal(pkorr,last_value_BMX280_P_NN,-1.0);
 				last_value_BMX280_P_NN=pkorr;
-				//debug_outln_info(F("BME280 Druck msl:"),pkorr);
+				debug_outln_info(F("BME280 Druck msl:"),pkorr);
 			}
 			else{
 		 		last_value_BMX280_P_NN=last_value_BMX280_P;
 			}
 			if (bmx280.sensorID() == BME280_SENSOR_ID)
-			    last_value_BME280_H = h + readCorrectionOffset(cfg::humidity_correction);
-				//last_value_BME280_H = ExpSmoothVal(h + readCorrectionOffset(cfg::humidity_correction),last_value_BME280_H,-1.0);
+				last_value_BME280_H = h + readCorrectionOffset(cfg::humidity_correction);
 		}
 	}
 	if ((msSince(last_display_millis) > DISPLAY_UPDATE_INTERVAL_MS) &&
